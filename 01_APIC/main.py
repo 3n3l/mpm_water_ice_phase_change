@@ -1,8 +1,11 @@
 import sys, os
+
 tests_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(tests_dir))
 
 from _common.simulation import GGUI_Simulation, GUI_Simulation
+from _common.samplers import BasePoissonDiskSampler
+
 from parsing import arguments, should_use_cuda_backend, should_use_collocated
 from presets import configuration_list
 from sampler import PoissonDiskSampler
@@ -18,8 +21,6 @@ def main():
     initial_configuration = arguments.configuration % len(configuration_list)
     simulation_name = f"Affine Particle-In-Cell Method"
 
-    # FIXME: changing configuration isn't working
-
     # The radius for the particles and the Poisson-Disk Sampler:
     # TODO: this could be computed from radius, this should just be n_pc * n_grid^2?!
     n_pc = 8
@@ -29,7 +30,7 @@ def main():
     dt = 1e-3 / arguments.quality
 
     solver = APIC(max_particles, n_grid, dt)
-    sampler = PoissonDiskSampler(apic_solver=solver, r=radius, k=30)
+    sampler = BasePoissonDiskSampler(solver=solver, r=radius, k=30)
 
     simulation = GGUI_Simulation(
         initial_configuration=initial_configuration,

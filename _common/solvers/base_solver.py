@@ -1,3 +1,4 @@
+from _common.configurations import Configuration
 from _common.constants import Classification
 from abc import ABC, abstractmethod
 
@@ -8,7 +9,7 @@ import taichi as ti
 class BaseSolver(ABC):
     def __init__(self, max_particles: int, n_grid: int, dt: float):
         self.n_particles = ti.field(dtype=ti.int32, shape=())
-        # self.max_particles = max_particles
+        self.max_particles = max_particles
         self.n_grid = n_grid
         # self.n_cells = self.n_grid * self.n_grid
         # self.dx = 1 / self.n_grid
@@ -19,7 +20,7 @@ class BaseSolver(ABC):
 
         # The width of the simulation boundary in grid nodes and offsets to
         # guarantee that seeded particles always lie within the boundary:
-        self.boundary_width = 3
+        self.boundary_width = 5
         self.w_grid = self.n_grid + self.boundary_width + self.boundary_width
         self.w_offset = (-self.boundary_width, -self.boundary_width)
         self.negative_boundary = -self.boundary_width
@@ -67,4 +68,12 @@ class BaseSolver(ABC):
 
     @abstractmethod
     def substep(self):
+        pass
+
+    @abstractmethod
+    def reset(self, configuration: Configuration):
+        pass
+
+    @abstractmethod
+    def add_particle(self, index: ti.i32, position: ti.template(), geometry: ti.template()):  # pyright: ignore
         pass

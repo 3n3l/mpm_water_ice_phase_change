@@ -1,23 +1,24 @@
+from _common.solvers import BaseSolver
 from _common.constants import State
 from abc import ABC
 
 import taichi as ti
 
 
+
 @ti.data_oriented
 class BasePoissonDiskSampler(ABC):
     def __init__(
         self,
-        position_p: ti.template(),  # pyright: ignore
-        state_p: ti.template(),  # pyright: ignore
-        max_p: int,
+        solver: BaseSolver,
         r: float = 0.002,
         k: int = 30,
     ) -> None:
         # Some of the solver's constants wills be used:
-        self.position_p = position_p
-        self.state_p = state_p
-        self.max_p = max_p
+        self.solver = solver
+        self.max_particles = solver.max_particles
+        self.position_p = solver.position_p
+        self.state_p = solver.state_p
 
         self.r = r  # Minimum distance between samples
         self.k = k  # Samples to choose before rejection
@@ -26,17 +27,18 @@ class BasePoissonDiskSampler(ABC):
 
         # The width of the simulation boundary in grid nodes and offsets to
         # guarantee that seeded particles always lie within the boundary:
-        self.boundary_width = 3
+        self.boundary_width = 5
         self.w_grid = self.n_grid + self.boundary_width + self.boundary_width
         self.w_offset = (-self.boundary_width, -self.boundary_width)
-        self.negative_boundary = -self.boundary_width
-        self.positive_boundary = self.n_grid + self.boundary_width
+        # self.negative_boundary = -self.boundary_width
+        # self.positive_boundary = self.n_grid + self.boundary_width
 
         # Initialize an n-dimension background grid to store samples:
         self.background_grid = ti.field(dtype=ti.i32, shape=(self.w_grid, self.w_grid), offset=self.w_offset)
 
         # We can't use a resizable list, so we point to the head and tail:
-        self._head = ti.field(int, shape=())
+        # self._head = ti.field(int, shape=())
+        self._head = self.solver.n_particles
         self._tail = ti.field(int, shape=())
 
     @ti.func
@@ -77,15 +79,7 @@ class BasePoissonDiskSampler(ABC):
 
     @ti.func
     def can_sample_more_points(self) -> bool:
-        return (self._head[None] < self._tail[None]) and (self._head[None] < self.max_p)
-
-    @ti.func
-    def initialize_grid(self, n_particles: ti.i32, positions: ti.template()):  # pyright: ignore
-        for i, j in ti.ndrange(self.n_grid, self.n_grid):
-            self.background_grid[i, j] = -1
-        for p in ti.ndrange(n_particles):
-            index = self.point_to_index(positions[p])
-            self.background_grid[index] = p
+        return (self._head[None] < self._tail[None]) and (self._head[None] < self.max_particles)
 
     @ti.func
     def initialize_grid(self, n_particles: ti.i32, positions: ti.template()):  # pyright: ignore
@@ -97,7 +91,7 @@ class BasePoissonDiskSampler(ABC):
             if self.state_p[p] == State.Hidden:
                 continue
 
-            index = self.point_to_index(positions[p])
+            index = self.point_to_index(self.position_p[p])
             self.background_grid[index] = p
 
     @ti.func
@@ -137,7 +131,7 @@ class BasePoissonDiskSampler(ABC):
 
         # Find a good initial point for this sample run:
         initial_point = self.generate_initial_point(geometry)
-        self.add_particle(self._tail[None], initial_point, geometry)
+        self.solver.add_particle(self._tail[None], initial_point, geometry)
         self._head[None] += 1
         self._tail[None] += 1
 
@@ -150,10 +144,5 @@ class BasePoissonDiskSampler(ABC):
                 next_index = self.point_to_index(next_position)
                 if self.point_fits(next_position, geometry):
                     self.background_grid[next_index] = self._tail[None]
-                    self.add_particle(self._tail[None], next_position, geometry)
+                    self.solver.add_particle(self._tail[None], next_position, geometry)
                     self._tail[None] += 1  # Increment when point is found
-
-    @ti.func
-    def add_particle(self, index: ti.i32, position: ti.template(), geometry: ti.template()):  # pyright: ignore
-        self.state_p[index] = State.Active
-        self.position_p[index] = position

@@ -1,6 +1,9 @@
-from taichi.linalg import SparseMatrixBuilder, SparseCG
+from _common.configurations import Configuration
 from _common.constants import State, Classification
 from _common.solvers import BaseSolver
+
+from taichi.linalg import SparseMatrixBuilder, SparseCG
+from typing import override
 
 import taichi as ti
 
@@ -260,6 +263,24 @@ class APIC(BaseSolver):
             self.cy_p[p] = b_y * 4 * self.inv_dx
             self.velocity_p[p] = next_velocity
             self.position_p[p] += self.dt * next_velocity
+
+    @override
+    def reset(self, configuration: Configuration):
+        self.state_p.fill(State.Hidden)
+        self.position_p.fill([42, 42])
+        self.n_particles[None] = 0
+
+    @ti.func
+    def add_particle(self, index: ti.i32, position: ti.template(), geometry: ti.template()):  # pyright: ignore
+        # Seed from the geometry and given position:
+        self.velocity_p[index] = geometry.velocity
+        self.position_p[index] = position
+        self.color_p[index] = geometry.color
+
+        # Set properties to default values:
+        self.state_p[index] = State.Active
+        self.cx_p[index] = 0
+        self.cy_p[index] = 0
 
     def substep(self) -> None:
         for _ in range(4 * int(2e-3 // self.dt)):
