@@ -24,8 +24,16 @@ class BasePoissonDiskSampler(ABC):
         self.dx = r / ti.sqrt(2)  # Cell size is bounded by this
         self.n_grid = int(1 / self.dx)  # Number of cells in the grid
 
+        # The width of the simulation boundary in grid nodes and offsets to
+        # guarantee that seeded particles always lie within the boundary:
+        self.boundary_width = 3
+        self.w_grid = self.n_grid + self.boundary_width + self.boundary_width
+        self.w_offset = (-self.boundary_width, -self.boundary_width)
+        self.negative_boundary = -self.boundary_width
+        self.positive_boundary = self.n_grid + self.boundary_width
+
         # Initialize an n-dimension background grid to store samples:
-        self.background_grid = ti.field(dtype=ti.i32, shape=(self.n_grid, self.n_grid))
+        self.background_grid = ti.field(dtype=ti.i32, shape=(self.w_grid, self.w_grid), offset=self.w_offset)
 
         # We can't use a resizable list, so we point to the head and tail:
         self._head = ti.field(int, shape=())
@@ -53,7 +61,7 @@ class BasePoissonDiskSampler(ABC):
 
     @ti.func
     def _in_bounds(self, point: ti.template(), geometry: ti.template()) -> bool:  # pyright: ignore
-        in_bounds = 0.0 < point[0] < 1.0 and 0.0 < point[1] < 1.0  # in simluation bounds
+        in_bounds = 0.0 < point[0] < 1.0 and 0.0 < point[1] < 1.0  # in simulation bounds
         in_bounds &= geometry.in_bounds(point[0], point[1])  # in geometry bounds
         return in_bounds
 
@@ -73,7 +81,7 @@ class BasePoissonDiskSampler(ABC):
 
     @ti.func
     def initialize_grid(self, n_particles: ti.i32, positions: ti.template()):  # pyright: ignore
-        for i, j in self.background_grid:
+        for i, j in ti.ndrange(self.n_grid, self.n_grid):
             self.background_grid[i, j] = -1
         for p in ti.ndrange(n_particles):
             index = self.point_to_index(positions[p])
@@ -81,7 +89,7 @@ class BasePoissonDiskSampler(ABC):
 
     @ti.func
     def initialize_grid(self, n_particles: ti.i32, positions: ti.template()):  # pyright: ignore
-        for i, j in self.background_grid:
+        for i, j in ti.ndrange(self.n_grid, self.n_grid):
             self.background_grid[i, j] = -1
 
         for p in ti.ndrange(n_particles):
