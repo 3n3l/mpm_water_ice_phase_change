@@ -16,9 +16,10 @@ class PoissonDiskSampler(BasePoissonDiskSampler):
         apic_solver.n_particles = self._head
 
         # Particle properties, used to seed new particles:
-        # self.position_p = apic_solver.position_p
+        self.position_p = apic_solver.position_p
         self.velocity_p = apic_solver.velocity_p
-        # self.state_p = apic_solver.state_p
+        self.state_p = apic_solver.state_p
+        self.color_p = apic_solver.color_p
         self.cx_p = apic_solver.cx_p
         self.cy_p = apic_solver.cy_p
 
@@ -27,6 +28,7 @@ class PoissonDiskSampler(BasePoissonDiskSampler):
         # Seed from the geometry and given position:
         self.velocity_p[index] = geometry.velocity
         self.position_p[index] = position
+        self.color_p[index] = geometry.color
 
         # Set properties to default values:
         self.state_p[index] = State.Active

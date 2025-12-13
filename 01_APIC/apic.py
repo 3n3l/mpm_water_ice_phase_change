@@ -1,5 +1,6 @@
 from taichi.linalg import SparseMatrixBuilder, SparseCG
 from _common.constants import State, Classification
+from _common.solvers import BaseSolver
 
 import taichi as ti
 
@@ -7,8 +8,10 @@ GRAVITY = -9.81
 
 
 @ti.data_oriented
-class APIC:
+class APIC(BaseSolver):
     def __init__(self, max_particles: int, n_grid: int, dt: float):
+        super().__init__(max_particles, n_grid, dt)
+
         self.max_particles = max_particles
         self.n_grid = n_grid
         self.dx = 1 / self.n_grid
@@ -20,28 +23,21 @@ class APIC:
         # Variable properties, must be stored in fields:
         self.n_particles = ti.field(dtype=ti.int32, shape=())
 
-        # The width of the simulation boundary in grid nodes and offsets to
-        # guarantee that seeded particles always lie within the boundary:
-        # TODO: compute offsets like in augmented MPM (could this be done in base class?)
-        self.boundary_width = 3
-        self.lower = self.boundary_width * self.dx
-        self.upper = 1 - self.lower
-
         # Properties on MAC-faces:
-        self.classification_c = ti.field(dtype=ti.int8, shape=(self.n_grid, self.n_grid))
-        self.classification_x = ti.field(dtype=ti.int8, shape=(self.n_grid + 1, self.n_grid))
-        self.classification_y = ti.field(dtype=ti.int8, shape=(self.n_grid, self.n_grid + 1))
-        self.velocity_x = ti.field(dtype=ti.f32, shape=(self.n_grid + 1, self.n_grid))
-        self.velocity_y = ti.field(dtype=ti.f32, shape=(self.n_grid, self.n_grid + 1))
-        self.volume_x = ti.field(dtype=ti.f32, shape=(self.n_grid + 1, self.n_grid))
-        self.volume_y = ti.field(dtype=ti.f32, shape=(self.n_grid, self.n_grid + 1))
-        self.mass_x = ti.field(dtype=ti.f32, shape=(self.n_grid + 1, self.n_grid))
-        self.mass_y = ti.field(dtype=ti.f32, shape=(self.n_grid, self.n_grid + 1))
+        self.classification_x = ti.field(dtype=ti.int8, shape=(self.w_grid + 1, self.w_grid), offset=self.w_offset)
+        self.classification_y = ti.field(dtype=ti.int8, shape=(self.w_grid, self.w_grid + 1), offset=self.w_offset)
+        self.velocity_x = ti.field(dtype=ti.f32, shape=(self.w_grid + 1, self.w_grid), offset=self.w_offset)
+        self.velocity_y = ti.field(dtype=ti.f32, shape=(self.w_grid, self.w_grid + 1), offset=self.w_offset)
+        self.volume_x = ti.field(dtype=ti.f32, shape=(self.w_grid + 1, self.w_grid), offset=self.w_offset)
+        self.volume_y = ti.field(dtype=ti.f32, shape=(self.w_grid, self.w_grid + 1), offset=self.w_offset)
+        self.mass_x = ti.field(dtype=ti.f32, shape=(self.w_grid + 1, self.w_grid), offset=self.w_offset)
+        self.mass_y = ti.field(dtype=ti.f32, shape=(self.w_grid, self.w_grid + 1), offset=self.w_offset)
 
         # Properties on particles:
-        self.position_p = ti.Vector.field(2, dtype=ti.f32, shape=max_particles)
-        self.velocity_p = ti.Vector.field(2, dtype=ti.f32, shape=max_particles)
-        self.state_p = ti.field(dtype=ti.f32, shape=max_particles)
+        # self.position_p = ti.Vector.field(2, dtype=ti.f32, shape=max_particles)
+        # self.velocity_p = ti.Vector.field(2, dtype=ti.f32, shape=max_particles)
+        # self.color_p = ti.Vector.field(3, dtype=ti.f32, shape=max_particles)
+        # self.state_p = ti.field(dtype=ti.f32, shape=max_particles)
         self.cx_p = ti.Vector.field(2, dtype=ti.f32, shape=max_particles)
         self.cy_p = ti.Vector.field(2, dtype=ti.f32, shape=max_particles)
 
@@ -50,40 +46,6 @@ class APIC:
         self.base_offset_y = ti.Vector([1.0, 0.5])
         self.dist_offset_x = ti.Vector([0.0, 0.5])
         self.dist_offset_y = ti.Vector([0.5, 0.0])
-
-        # Now we can initialize the colliding boundary (or bounding box) around the domain:
-        self.initialize_boundary()
-
-    @ti.func
-    def in_bounds(self, x: float, y: float) -> bool:
-        return self.lower < x < self.upper and self.lower < y < self.upper
-
-    @ti.func
-    def is_valid(self, i: int, j: int) -> bool:
-        return i >= 0 and i <= self.n_grid - 1 and j >= 0 and j <= self.n_grid - 1
-
-    @ti.func
-    def is_colliding(self, i: int, j: int) -> bool:
-        return self.is_valid(i, j) and self.classification_c[i, j] == Classification.Colliding
-
-    @ti.func
-    def is_interior(self, i: int, j: int) -> bool:
-        return self.is_valid(i, j) and self.classification_c[i, j] == Classification.Interior
-
-    @ti.func
-    def is_empty(self, i: int, j: int) -> bool:
-        return self.is_valid(i, j) and self.classification_c[i, j] == Classification.Empty
-
-
-    @ti.kernel
-    def initialize_boundary(self):
-        for i, j in self.classification_c:
-            is_colliding = not (self.boundary_width <= i < self.n_grid - self.boundary_width)
-            is_colliding |= not (self.boundary_width <= j < self.n_grid - self.boundary_width)
-            if is_colliding:
-                self.classification_c[i, j] = Classification.Colliding
-            else:
-                self.classification_c[i, j] = Classification.Empty
 
     @ti.kernel
     def classify_cells(self):
@@ -101,17 +63,6 @@ class APIC:
             i, j = ti.floor(self.position_p[p] * self.inv_dx, dtype=ti.i32)  # pyright: ignore
             if not self.is_colliding(i, j):  # pyright: ignore
                 self.classification_c[i, j] = Classification.Interior
-
-    @ti.func
-    def add_particle(self, index: ti.i32, position: ti.template(), geometry: ti.template()):  # pyright: ignore
-        # Seed from the geometry and given position:
-        self.velocity_p[index] = geometry.velocity
-        self.position_p[index] = position
-
-        # Set properties to default values:
-        self.state_p[index] = State.Active
-        self.cx_p[index] = 0
-        self.cy_p[index] = 0
 
     @ti.kernel
     def reset_grids(self):
@@ -163,8 +114,8 @@ class APIC:
         for i, j in self.velocity_x:
             if (mass := self.mass_x[i, j]) > 0:
                 self.velocity_x[i, j] /= mass
-                collision_right = i >= (self.n_grid - self.boundary_width) and self.velocity_x[i, j] > 0
-                collision_left = i <= self.boundary_width and self.velocity_x[i, j] < 0
+                collision_right = i >= self.n_grid and self.velocity_x[i, j] > 0
+                collision_left = i <= 0 and self.velocity_x[i, j] < 0
                 if collision_left or collision_right:
                     self.velocity_x[i, j] = 0
 
@@ -172,8 +123,8 @@ class APIC:
             if (mass := self.mass_y[i, j]) > 0:
                 self.velocity_y[i, j] /= mass
                 self.velocity_y[i, j] += GRAVITY * self.dt
-                collision_top = j >= (self.n_grid - self.boundary_width) and self.velocity_y[i, j] > 0
-                collision_bottom = j <= self.boundary_width and self.velocity_y[i, j] < 0
+                collision_top = j >= self.n_grid and self.velocity_y[i, j] > 0
+                collision_bottom = j <= 0 and self.velocity_y[i, j] < 0
                 if collision_top or collision_bottom:
                     self.velocity_y[i, j] = 0
 
@@ -181,7 +132,7 @@ class APIC:
     def compute_volumes(self):
         # FIXME: this control volume doesn't help with the density correction
         control_volume = 0.5 * self.dx * self.dx
-        for i, j in self.classification_c:
+        for i, j in ti.ndrange(self.n_grid, self.n_grid):
             if self.is_interior(i, j):
                 self.volume_x[i + 1, j] += control_volume
                 self.volume_x[i, j] += control_volume

@@ -30,6 +30,7 @@ class GGUI_Simulation(BaseSimulation):
         configurations: list[Configuration],
         solver: BaseSolver,
         initial_configuration: int = 0,
+        radius=0.0015,
     ) -> None:
         super().__init__(
             initial_configuration=initial_configuration,
@@ -42,7 +43,7 @@ class GGUI_Simulation(BaseSimulation):
         self.window = ti.ui.Window(name, res, fps_limit=60)
         self.canvas = self.window.get_canvas()
         self.gui = self.window.get_gui()
-        self.radius = 0.0015
+        self.radius = radius
 
         # Fields that hold certain colors, must be update in each draw call.
         self.temperature_colors_p = ti.Vector.field(3, dtype=ti.f32, shape=self.solver.max_particles)
