@@ -17,7 +17,7 @@ class GUI_Simulation(BaseSimulation):
         res: int,
         solver: BaseSolver,
         configurations: list[Configuration],
-        poisson_disk_sampler: BasePoissonDiskSampler,
+        sampler: BasePoissonDiskSampler,
         initial_configuration: int = 0,
     ) -> None:
         """Constructs a  GUI renderer, this advances the MLS-MPM solver and renders the updated particle positions.
@@ -31,7 +31,7 @@ class GUI_Simulation(BaseSimulation):
         super().__init__(
             initial_configuration=initial_configuration,
             configurations=configurations,
-            sampler=poisson_disk_sampler,
+            sampler=sampler,
             solver=solver,
         )
 
