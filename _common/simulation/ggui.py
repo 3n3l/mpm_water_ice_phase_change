@@ -52,6 +52,9 @@ class GGUI_Simulation(BaseSimulation):
         self.temperature_colors_p = ti.Vector.field(3, dtype=ti.f32, shape=self.solver.max_particles)
         # TODO: also move the phase colors here, then only update the phase colors when drawing the phase?!
 
+        # Scratch field, will be updated with the visible cells of the offset fields of the solver.
+        self.scratch_field = ti.field(dtype=ti.i32, shape=(self.solver.n_grid, self.solver.n_grid))
+
         # Construct a vector field as a heat map:
         self.heat_map_length = len(ColorRGB.HeatMap)
         self.heat_map = ti.Vector.field(3, dtype=ti.f32, shape=self.heat_map_length)
@@ -71,10 +74,10 @@ class GGUI_Simulation(BaseSimulation):
 
         # Background Options:
         self.background_options = [
-            # DrawingOption("Classification", False, lambda: self.show_contour(self.solver.classification_c)),
-            # DrawingOption("Temperature", False, lambda: self.show_contour(self.solver.temperature_c)),
+            DrawingOption("Classification", False, lambda: self.show_contour(self.solver.classification_c)),
+            DrawingOption("Temperature", False, lambda: self.show_contour(self.solver.temperature_c)),
             DrawingOption("Background", True, lambda: self.canvas.set_background_color(ColorRGB.Background)),
-            # DrawingOption("Mass", False, lambda: self.show_contour(self.solver.mass_c)),
+            DrawingOption("Mass", False, lambda: self.show_contour(self.solver.mass_c)),
         ]
 
     def show_configurations(self) -> None:
@@ -222,33 +225,33 @@ class GGUI_Simulation(BaseSimulation):
             elif self.window.event.key in [ti.GUI.ESCAPE, ti.GUI.EXIT]:
                 self.window.running = False  # Stop the simulation
 
-    # @ti.kernel
-    # def update_temperature_p(self):
-    #     max_temperature = Simulation.MaximumTemperature
-    #     min_temperature = Simulation.MininumTemperature
-    #
-    #     # Get min, max values for normalization:
-    #     if self.should_normalize_temperature:
-    #         for p in self.temperature_colors_p:
-    #             if self.solver.state_p[p] == State.Hidden:
-    #                 continue  # ignore uninitialized particles
-    #             temperature = self.solver.temperature_p[p]
-    #             if temperature > max_temperature:
-    #                 max_temperature = temperature
-    #             elif temperature < min_temperature:
-    #                 min_temperature = temperature
-    #
-    #     # Affine combination of the colors based on min, max values and the temperature:
-    #     max_index, min_index = self.heat_map_length - 1, 0
-    #     factor = ti.cast(max_index, ti.f32)
-    #     for p in self.temperature_colors_p:
-    #         if self.solver.state_p[p] == State.Hidden:
-    #             continue  # ignore uninitialized particles
-    #         t = self.solver.temperature_p[p]
-    #         a = (t - min_temperature) / (max_temperature - min_temperature)
-    #         color1 = self.heat_map[ti.max(min_index, ti.floor(factor * a, ti.i8))]
-    #         color2 = self.heat_map[ti.min(max_index, ti.ceil(factor * a, ti.i8))]
-    #         self.temperature_colors_p[p] = ((1 - a) * color1) + (a * color2)
+    @ti.kernel
+    def update_temperature_p(self):
+        max_temperature = Simulation.MaximumTemperature
+        min_temperature = Simulation.MininumTemperature
+
+        # Get min, max values for normalization:
+        if self.should_normalize_temperature:
+            for p in self.temperature_colors_p:
+                if self.solver.state_p[p] == State.Hidden:
+                    continue  # ignore uninitialized particles
+                temperature = self.solver.temperature_p[p]
+                if temperature > max_temperature:
+                    max_temperature = temperature
+                elif temperature < min_temperature:
+                    min_temperature = temperature
+
+        # Affine combination of the colors based on min, max values and the temperature:
+        max_index, min_index = self.heat_map_length - 1, 0
+        factor = ti.cast(max_index, ti.f32)
+        for p in self.temperature_colors_p:
+            if self.solver.state_p[p] == State.Hidden:
+                continue  # ignore uninitialized particles
+            t = self.solver.temperature_p[p]
+            a = (t - min_temperature) / (max_temperature - min_temperature)
+            color1 = self.heat_map[ti.max(min_index, ti.floor(factor * a, ti.i8))]
+            color2 = self.heat_map[ti.min(max_index, ti.ceil(factor * a, ti.i8))]
+            self.temperature_colors_p[p] = ((1 - a) * color1) + (a * color2)
 
     def draw_temperature_p(self) -> None:
         """
@@ -271,11 +274,20 @@ class GGUI_Simulation(BaseSimulation):
             radius=self.radius,
         )
 
+    @ti.kernel
+    def update_scratch_field(self, scalar_field: ti.template()): # pyright: ignore
+        for i,j in ti.ndrange(self.solver.n_grid, self.solver.n_grid):
+            self.scratch_field[i,j] = scalar_field[i,j]
+
     def show_contour(self, scalar_field) -> None:
         """
         Show the contour of a given scalar field.
         """
-        self.canvas.contour(scalar_field, cmap_name="magma", normalize=True)
+        # Because the fields of the solver are offset to move the boundary beyond the visible
+        # portion of the window, we need to remove the invisible parts, otherwise the contour
+        # will be offset.
+        self.update_scratch_field(scalar_field)
+        self.canvas.contour(self.scratch_field, cmap_name="magma", normalize=True)
 
     def render(self) -> None:
         """
