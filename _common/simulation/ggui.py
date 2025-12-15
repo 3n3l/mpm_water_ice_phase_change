@@ -53,7 +53,7 @@ class GGUI_Simulation(BaseSimulation):
         # TODO: also move the phase colors here, then only update the phase colors when drawing the phase?!
 
         # Scratch field, will be updated with the visible cells of the offset fields of the solver.
-        self.scratch_field = ti.field(dtype=ti.i32, shape=(self.solver.n_grid, self.solver.n_grid))
+        self.scratch_field = ti.field(dtype=ti.f32, shape=(self.solver.n_grid, self.solver.n_grid))
 
         # Construct a vector field as a heat map:
         self.heat_map_length = len(ColorRGB.HeatMap)
