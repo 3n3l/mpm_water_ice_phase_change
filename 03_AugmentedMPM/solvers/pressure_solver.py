@@ -11,13 +11,11 @@ GRAVITY = -9.81
 class PressureSolver:
     def __init__(self, mpm_solver) -> None:
         self.n_cells = mpm_solver.n_grid * mpm_solver.n_grid
-        self.boundary_width = mpm_solver.boundary_width
         self.inv_dx = mpm_solver.inv_dx
         self.n_grid = mpm_solver.n_grid
         self.mpm_solver = mpm_solver
         self.dt = mpm_solver.dt
 
-        self.classification_c = mpm_solver.classification_c
         self.inv_lambda_c = mpm_solver.inv_lambda_c
         self.JE_c = mpm_solver.JE_c
         self.JP_c = mpm_solver.JP_c
@@ -124,7 +122,7 @@ class PressureSolver:
             assert solver_succeeded, "SOLVER DID NOT FIND A SOLUTION!"
             assert not np.any(np.isnan(pressure)), "NAN VALUE IN PRESSURE ARRAY!"
         else:
-            solver = SparseCG(A.build(), b, atol=1e-6, max_iter=500)
+            solver = SparseCG(A.build(), b, atol=1e-5, max_iter=500)
             p, _ = solver.solve()
 
         # Correct pressure:

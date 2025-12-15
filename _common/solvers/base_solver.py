@@ -11,12 +11,11 @@ class BaseSolver(ABC):
         self.n_particles = ti.field(dtype=ti.int32, shape=())
         self.max_particles = max_particles
         self.n_grid = n_grid
-        # self.n_cells = self.n_grid * self.n_grid
-        # self.dx = 1 / self.n_grid
-        # self.inv_dx = float(self.n_grid)
-        # self.vol_0_p = (self.dx * 0.5) ** 2
-        # self.n_dimensions = 2
-        # self.dt = dt
+        self.dx = 1 / self.n_grid
+        self.inv_dx = float(self.n_grid)
+        self.vol_0_p = (self.dx * 0.5) ** 2
+        self.n_dimensions = 2
+        self.dt = dt
 
         # The width of the simulation boundary in grid nodes and offsets to
         # guarantee that seeded particles always lie within the boundary:
@@ -26,14 +25,24 @@ class BaseSolver(ABC):
         self.negative_boundary = -self.boundary_width
         self.positive_boundary = self.n_grid + self.boundary_width
 
+        # Temperature related fields:
+        self.ambient_temperature = ti.field(dtype=ti.f32, shape=())
+        self.boundary_temperature = ti.field(dtype=ti.f32, shape=())
+
         # Properties on cell centers:
         self.classification_c = ti.field(dtype=ti.i32, shape=(self.w_grid, self.w_grid), offset=self.w_offset)
+        self.temperature_c = ti.field(dtype=ti.f32, shape=(self.w_grid, self.w_grid), offset=self.w_offset)
+        self.velocity_c = ti.Vector.field(2, dtype=ti.f32, shape=(self.w_grid, self.w_grid), offset=self.w_offset)
+        self.mass_c = ti.field(dtype=ti.f32, shape=(self.w_grid, self.w_grid), offset=self.w_offset)
 
         # Properties on particles:
+        self.temperature_p = ti.field(dtype=ti.f32, shape=max_particles)
         self.velocity_p = ti.Vector.field(2, dtype=ti.f32, shape=max_particles)
         self.position_p = ti.Vector.field(2, dtype=ti.f32, shape=max_particles)
         self.color_p = ti.Vector.field(3, dtype=ti.f32, shape=max_particles)
         self.state_p = ti.field(dtype=ti.f32, shape=max_particles)
+        self.phase_p = ti.field(dtype=ti.f32, shape=max_particles)
+        self.mass_p = ti.field(dtype=ti.f32, shape=max_particles)
 
         # Now we can initialize the colliding boundary (or bounding box) around the domain:
         self.initialize_boundary()
@@ -47,6 +56,10 @@ class BaseSolver(ABC):
     @ti.func
     def is_colliding(self, i: int, j: int) -> bool:
         return self.is_valid(i, j) and self.classification_c[i, j] == Classification.Colliding
+
+    @ti.func
+    def is_insulated(self, i: int, j: int) -> bool:
+        return self.is_valid(i, j) and self.classification_c[i, j] == Classification.Insulated
 
     @ti.func
     def is_interior(self, i: int, j: int) -> bool:

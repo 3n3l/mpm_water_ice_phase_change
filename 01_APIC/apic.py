@@ -15,17 +15,6 @@ class APIC(BaseSolver):
     def __init__(self, max_particles: int, n_grid: int, dt: float):
         super().__init__(max_particles, n_grid, dt)
 
-        self.max_particles = max_particles
-        self.n_grid = n_grid
-        self.dx = 1 / self.n_grid
-        self.inv_dx = float(self.n_grid)
-        self.dt = dt
-        self.inv_dt = 1 / self.dt
-        self.vol_p = (self.dx * 0.5) ** 2
-
-        # Variable properties, must be stored in fields:
-        self.n_particles = ti.field(dtype=ti.int32, shape=())
-
         # Properties on MAC-faces:
         self.classification_x = ti.field(dtype=ti.int8, shape=(self.w_grid + 1, self.w_grid), offset=self.w_offset)
         self.classification_y = ti.field(dtype=ti.int8, shape=(self.w_grid, self.w_grid + 1), offset=self.w_offset)
@@ -37,10 +26,6 @@ class APIC(BaseSolver):
         self.mass_y = ti.field(dtype=ti.f32, shape=(self.w_grid, self.w_grid + 1), offset=self.w_offset)
 
         # Properties on particles:
-        # self.position_p = ti.Vector.field(2, dtype=ti.f32, shape=max_particles)
-        # self.velocity_p = ti.Vector.field(2, dtype=ti.f32, shape=max_particles)
-        # self.color_p = ti.Vector.field(3, dtype=ti.f32, shape=max_particles)
-        # self.state_p = ti.field(dtype=ti.f32, shape=max_particles)
         self.cx_p = ti.Vector.field(2, dtype=ti.f32, shape=max_particles)
         self.cy_p = ti.Vector.field(2, dtype=ti.f32, shape=max_particles)
 

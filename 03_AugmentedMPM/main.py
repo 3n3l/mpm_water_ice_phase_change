@@ -22,7 +22,8 @@ def main():
         ti.init(arch=ti.cuda, debug=arguments.debug)
 
     # TODO: there might be a way to set this again?
-    solver = AugmentedMPM(quality=arguments.quality, max_particles=100_000)
+    max_particles, n_grid, dt = 100_000, 128 * arguments.quality, 3e-4
+    solver = AugmentedMPM(max_particles=max_particles, n_grid=n_grid, dt=dt)
     poisson_disk_sampler = BasePoissonDiskSampler(solver=solver, r=0.002, k=30)
 
     name = "Augmented MPM, Water and Ice with Phase Change"

@@ -15,25 +15,7 @@ class MPM(BaseSolver):
     def __init__(self, max_particles: int, n_grid: int, dt: float):
         super().__init__(max_particles, n_grid, dt)
 
-        # MPM Parameters that are configuration independent
-        # self.n_particles = ti.field(dtype=ti.int32, shape=())
-        self.max_particles = max_particles
-        # self.n_grid = n_grid
-        self.dx = 1 / self.n_grid
-        self.inv_dx = float(self.n_grid)
-        self.dt = dt
-        self.vol_0_p = (self.dx * 0.5) ** 2
-
-        # Cell properties:
-        self.velocity_c = ti.Vector.field(2, dtype=ti.f32, shape=(self.w_grid, self.w_grid), offset=self.w_offset)
-        self.mass_c = ti.field(dtype=ti.f32, shape=(self.w_grid, self.w_grid), offset=self.w_offset)
-
         # Particle properties:
-        # self.position_p = ti.Vector.field(2, dtype=ti.f32, shape=max_particles)
-        # self.velocity_p = ti.Vector.field(2, dtype=ti.f32, shape=max_particles)
-        # self.color_p = ti.Vector.field(3, dtype=ti.f32, shape=max_particles)
-        # self.state_p = ti.field(dtype=ti.f32, shape=max_particles)
-        self.mass_p = ti.field(dtype=ti.f32, shape=max_particles)
         self.FE_p = ti.Matrix.field(2, 2, dtype=ti.f32, shape=max_particles)
         self.JE_p = ti.field(dtype=ti.f32, shape=max_particles)
         self.JP_p = ti.field(dtype=ti.f32, shape=max_particles)
