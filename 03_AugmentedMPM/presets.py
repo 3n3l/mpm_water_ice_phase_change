@@ -239,7 +239,7 @@ configuration_list = [
                     radius=0.025,
                     frame_threshold=i,
                 )
-                for i in range(1, 300)
+                for i in range(1, 200)
             ],
             Rectangle(  # BL
                 material=Ice,  # pyright: ignore
@@ -299,7 +299,7 @@ configuration_list = [
                     size=(0.06, 0.06),
                     frame_threshold=i,
                 )
-                for i in range(300)
+                for i in range(200)
             ],
             *[
                 Circle(
@@ -327,7 +327,7 @@ configuration_list = [
                 size=(0.06, 0.06),
                 frame_threshold=i,
             )
-            for i in range(1, 300)
+            for i in range(1, 200)
         ],
     ),
     Configuration(

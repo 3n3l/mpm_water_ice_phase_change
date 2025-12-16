@@ -1,4 +1,4 @@
-import sys, os
+import sys, os, math
 
 tests_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(tests_dir))
@@ -21,16 +21,12 @@ def main():
     name = f"Affine Particle-In-Cell Method"
     prefix = f"APIC"
 
-    # The radius for the particles and the Poisson-Disk Sampler:
-    # TODO: this could be computed from radius, this should just be n_pc * n_grid^2?!
-    n_pc = 8
-    max_particles = 500_000
-    n_grid = 128 * arguments.quality
-    radius = 1 / (n_pc * float(n_grid))  # dx / 4
+    max_particles, n_grid = 300_000, 128
+    radius = 1 / (6 * float(n_grid))  # 6 particles per cell
+    vol_0 = math.pi * (radius**2)
 
-    solver = APIC(max_particles, n_grid)
+    solver = APIC(max_particles=max_particles, n_grid=n_grid, vol_0=vol_0)
     sampler = BasePoissonDiskSampler(solver=solver, r=radius, k=30)
-
     simulation = GGUI_Simulation(
         initial_configuration=initial_configuration,
         configurations=configuration_list,

@@ -1,4 +1,4 @@
-import sys, os
+import sys, os, math
 
 tests_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(tests_dir))
@@ -21,27 +21,30 @@ def main():
     else:
         ti.init(arch=ti.cuda, debug=arguments.debug)
 
-    # TODO: there might be a way to set this again?
-    max_particles, n_grid= 100_000, 128 * arguments.quality
-    solver = AugmentedMPM(max_particles=max_particles, n_grid=n_grid)
-    poisson_disk_sampler = BasePoissonDiskSampler(solver=solver, r=0.002, k=30)
-
+    initial_configuration = arguments.configuration % len(configuration_list)
     name = "Augmented MPM, Water and Ice with Phase Change"
     prefix = "A_MPM"
-    initial_configuration = arguments.configuration % len(configuration_list)
+
+    max_particles, n_grid = 300_000, 128
+    radius = 1 / (6 * float(n_grid))  # 6 particles per cell
+    vol_0 = math.pi * (radius**2)
+
+    solver = AugmentedMPM(max_particles=max_particles, n_grid=n_grid, vol_0=vol_0)
+    poisson_disk_sampler = BasePoissonDiskSampler(solver=solver, r=radius, k=30)
     if arguments.gui.lower() == "ggui":
-        renderer = GGUI_Simulation(
+        simulation = GGUI_Simulation(
             initial_configuration=initial_configuration,
             configurations=configuration_list,
             sampler=poisson_disk_sampler,
             res=(720, 720),
             prefix=prefix,
             solver=solver,
+            radius=radius,
             name=name,
         )
-        renderer.run()
+        simulation.run()
     elif arguments.gui.lower() == "gui":
-        renderer = GUI_Simulation(
+        simulation = GUI_Simulation(
             initial_configuration=initial_configuration,
             configurations=configuration_list,
             sampler=poisson_disk_sampler,
@@ -50,7 +53,7 @@ def main():
             name=name,
             res=720,
         )
-        renderer.run()
+        simulation.run()
 
     print("\n", "#" * 100, sep="")
     print("###", name)

@@ -7,12 +7,12 @@ import taichi as ti
 
 @ti.data_oriented
 class BaseSolver(ABC):
-    def __init__(self, max_particles: int, n_grid: int):
-        self.vol_0_p = (0.5 / n_grid) ** 2
+    def __init__(self, max_particles: int, n_grid: int, vol_0: float):
         self.max_particles = max_particles
         self.inv_dx = float(n_grid)
         self.n_grid = n_grid
         self.dx = 1 / n_grid
+        self.vol_0_p = vol_0
 
         # The width of the simulation boundary in grid nodes and offsets to
         # guarantee that seeded particles always lie within the boundary:

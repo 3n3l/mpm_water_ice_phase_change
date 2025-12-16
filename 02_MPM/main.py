@@ -1,4 +1,4 @@
-import sys, os
+import sys, os, math
 
 tests_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(tests_dir))
@@ -23,15 +23,16 @@ def main():
     else:
         ti.init(arch=ti.cuda, debug=arguments.debug)
 
-    max_particles = 100_000
-    n_grid = 128 * arguments.quality
-
-    mpm_solver = MPM(max_particles, n_grid)
-    poisson_disk_sampler = BasePoissonDiskSampler(solver=mpm_solver, r=0.002, k=30)
-
+    initial_configuration = arguments.configuration % len(configuration_list)
     name = "Material Point Method for Snow Simulation"
     prefix = "MPM"
-    initial_configuration = arguments.configuration % len(configuration_list)
+
+    max_particles, n_grid = 300_000, 128
+    radius = 1 / (6 * float(n_grid))  # 6 particles per cell
+    vol_0 = math.pi * (radius**2)
+
+    mpm_solver = MPM(max_particles, n_grid, vol_0)
+    poisson_disk_sampler = BasePoissonDiskSampler(solver=mpm_solver, r=radius, k=10)
     if arguments.gui.lower() == "ggui":
         renderer = GGUI_Simulation(
             initial_configuration=initial_configuration,
@@ -40,6 +41,7 @@ def main():
             solver=mpm_solver,
             res=(720, 720),
             prefix=prefix,
+            radius=radius,
             name=name,
         )
         renderer.run()

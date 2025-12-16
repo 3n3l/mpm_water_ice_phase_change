@@ -8,8 +8,8 @@ import taichi as ti
 
 @ti.data_oriented
 class MPM(BaseSolver):
-    def __init__(self, max_particles: int, n_grid: int):
-        super().__init__(max_particles, n_grid)
+    def __init__(self, max_particles: int, n_grid: int, vol_0: float):
+        super().__init__(max_particles, n_grid, vol_0)
 
         # Particle properties:
         self.theta_c_p = ti.field(dtype=ti.f32, shape=max_particles)

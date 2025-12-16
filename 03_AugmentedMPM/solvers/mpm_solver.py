@@ -8,8 +8,8 @@ import taichi as ti
 
 @ti.data_oriented
 class AugmentedMPM(BaseSolver):
-    def __init__(self, max_particles: int, n_grid: int):
-        super().__init__(max_particles, n_grid)
+    def __init__(self, max_particles: int, n_grid: int, vol_0: float):
+        super().__init__(max_particles, n_grid, vol_0)
 
         # Properties on MAC-faces.
         self.classification_x = ti.field(dtype=ti.i32, shape=(self.w_grid + 1, self.w_grid), offset=self.w_offset)
