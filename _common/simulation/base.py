@@ -31,6 +31,8 @@ class BaseSimulation:
         # State.
         self.is_paused = True
         self.should_write_to_disk = False
+        self.should_create_video = True
+        self.should_create_gif = False
         self.is_showing_settings = not self.is_paused  # wether the settings are showing
         self.should_show_settings = True  # wether the settings should be shown
 
@@ -92,11 +94,11 @@ class BaseSimulation:
             framerate=60,
         )
 
-    def create_video(self, should_create_gif=True, should_create_video=True) -> None:
+    def create_video(self) -> None:
         """
         Converts stored frames in the before created output directory to a video.
         """
-        self.video_manager.make_video(gif=should_create_gif, mp4=should_create_video)
+        self.video_manager.make_video(gif=self.should_create_gif, mp4=self.should_create_video)
 
     def load_configuration(self, configuration: Configuration) -> None:
         """

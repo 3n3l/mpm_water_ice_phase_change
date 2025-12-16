@@ -68,7 +68,7 @@ class GGUI_Simulation(BaseSimulation):
         # Foreground Options:
         self.foreground_options = [
             DrawingOption("Temperature", False, self.draw_temperature_p),
-            DrawingOption("Nothing", False, lambda: None),
+            DrawingOption("Background", False, lambda: None),
             DrawingOption("Phase", True, self.draw_phase_p),
         ]
 
@@ -77,7 +77,6 @@ class GGUI_Simulation(BaseSimulation):
             DrawingOption("Classification", False, lambda: self.show_contour(self.solver.classification_c)),
             DrawingOption("Temperature", False, lambda: self.show_contour(self.solver.temperature_c)),
             DrawingOption("Background", True, lambda: self.canvas.set_background_color(ColorRGB.Background)),
-            DrawingOption("Mass", False, lambda: self.show_contour(self.solver.mass_c)),
         ]
 
     def show_configurations(self) -> None:
@@ -102,7 +101,7 @@ class GGUI_Simulation(BaseSimulation):
         """
         Show the foreground drawing options as checkboxes inside own subwindow.
         """
-        with self.gui.sub_window("Foreground", 0.67, 0.01, 0.32, 0.24) as subwindow:
+        with self.gui.sub_window("Foreground", 0.67, 0.01, 0.32, 0.16) as subwindow:
             for option in self.foreground_options:
                 if subwindow.checkbox(option.name, option.is_active):
                     for _option in self.foreground_options:
@@ -113,7 +112,7 @@ class GGUI_Simulation(BaseSimulation):
         """
         Show the background drawing options as checkboxes inside own subwindow.
         """
-        with self.gui.sub_window("Background", 0.67, 0.26, 0.32, 0.24) as subwindow:
+        with self.gui.sub_window("Background", 0.67, 0.18, 0.32, 0.16) as subwindow:
             for option in self.background_options:
                 if subwindow.checkbox(option.name, option.is_active):
                     for _option in self.background_options:
@@ -138,12 +137,18 @@ class GGUI_Simulation(BaseSimulation):
                 minimum=-273,
                 maximum=273,
             )
+            self.solver.gravity[None] = subwindow.slider_float(
+                text="Gravity",
+                old_value=float(self.solver.gravity[None]),  # pyright: ignore
+                minimum=0,
+                maximum=-9.81,
+            )
 
     def show_buttons(self) -> None:
         """
         Show a set of buttons in the subwindow, this mainly holds functions to control the simulation.
         """
-        with self.gui.sub_window("Settings", 0.67, 0.51, 0.32, 0.14) as subwindow:
+        with self.gui.sub_window("Settings", 0.67, 0.35, 0.32, 0.3) as subwindow:
             if subwindow.button(" Stop recording  " if self.should_write_to_disk else " Start recording "):
                 # This button toggles between saving frames and not saving frames.
                 self.should_write_to_disk = not self.should_write_to_disk
@@ -155,6 +160,9 @@ class GGUI_Simulation(BaseSimulation):
                 self.reset()
             if subwindow.button(" Start Simulation"):
                 self.is_paused = False
+
+            self.should_create_video = subwindow.checkbox("Create Video", self.should_create_video)
+            self.should_create_gif = subwindow.checkbox("Create GIF", self.should_create_gif)
 
     def show_settings(self) -> None:
         """
@@ -183,6 +191,10 @@ class GGUI_Simulation(BaseSimulation):
                 self.should_show_settings = not self.should_show_settings
             elif self.window.event.key in [ti.GUI.BACKSPACE, "s"]:
                 self.should_write_to_disk = not self.should_write_to_disk
+                if self.should_write_to_disk:
+                    self.dump_frames()
+                else:
+                    self.create_video()
             elif self.window.event.key in [ti.GUI.SPACE, "p"]:
                 self.is_paused = not self.is_paused
             elif self.window.event.key in [ti.GUI.ESCAPE, ti.GUI.EXIT]:
@@ -238,9 +250,9 @@ class GGUI_Simulation(BaseSimulation):
         )
 
     @ti.kernel
-    def update_scratch_field(self, scalar_field: ti.template()): # pyright: ignore
-        for i,j in ti.ndrange(self.solver.n_grid, self.solver.n_grid):
-            self.scratch_field[i,j] = scalar_field[i,j]
+    def update_scratch_field(self, scalar_field: ti.template()):  # pyright: ignore
+        for i, j in ti.ndrange(self.solver.n_grid, self.solver.n_grid):
+            self.scratch_field[i, j] = scalar_field[i, j]
 
     def show_contour(self, scalar_field) -> None:
         """
@@ -256,7 +268,7 @@ class GGUI_Simulation(BaseSimulation):
         """
         Renders the simulation with the data from the MLS-MPM solver.
         """
-        # Draw chosen foreground/brackground, NOTE: foreground must be drawn last.
+        # Draw chosen foreground/background, NOTE: foreground must be drawn last.
         for option in self.background_options + self.foreground_options:
             if option.is_active:
                 option.draw()
