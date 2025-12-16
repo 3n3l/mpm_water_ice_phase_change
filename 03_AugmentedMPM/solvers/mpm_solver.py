@@ -1,9 +1,7 @@
-from typing import override
 from _common.constants import Classification, State, Water, Ice, Simulation
-from _common.configurations import Configuration
-from _common.solvers import BaseSolver
-
 from solvers import PressureSolver, HeatSolver
+from _common.solvers import BaseSolver
+from typing import override
 
 import taichi as ti
 
@@ -35,27 +33,21 @@ class AugmentedMPM(BaseSolver):
         # Properties on particles.
         self.conductivity_p = ti.field(dtype=ti.f32, shape=max_particles)
         self.capacity_p = ti.field(dtype=ti.f32, shape=max_particles)
-        self.lambda_0_p = ti.field(dtype=ti.f32, shape=max_particles)
-        self.mu_0_p = ti.field(dtype=ti.f32, shape=max_particles)
+        self.theta_c_p = ti.field(dtype=ti.f32, shape=max_particles)
+        self.theta_s_p = ti.field(dtype=ti.f32, shape=max_particles)
+        self.lambda_p = ti.field(dtype=ti.f32, shape=max_particles)
+        self.zeta_p = ti.field(dtype=ti.i32, shape=max_particles)
         self.FE_p = ti.Matrix.field(2, 2, dtype=ti.f32, shape=max_particles)
         self.JE_p = ti.field(dtype=ti.f32, shape=max_particles)
         self.JP_p = ti.field(dtype=ti.f32, shape=max_particles)
+        self.nu_p = ti.field(dtype=ti.f32, shape=max_particles)
+        self.mu_p = ti.field(dtype=ti.f32, shape=max_particles)
+        self.E_p = ti.field(dtype=ti.f32, shape=max_particles)
         self.J_p = ti.field(dtype=ti.f32, shape=max_particles)
         self.C_p = ti.Matrix.field(2, 2, dtype=ti.f32, shape=max_particles)
 
         # Fields needed for the latent heat and phase change.
         self.latent_heat_p = ti.field(dtype=ti.f32, shape=max_particles)  # U_p
-
-        # Variables controlled from the GUI, stored in fields to be accessed from compiled kernels.
-        self.lambda_0_ice = ti.field(dtype=ti.f32, shape=())
-        self.theta_c_ice = ti.field(dtype=ti.f32, shape=())
-        self.theta_s_ice = ti.field(dtype=ti.f32, shape=())
-        self.mu_0_ice = ti.field(dtype=ti.f32, shape=())
-        self.zeta_ice = ti.field(dtype=ti.i32, shape=())
-        self.nu_ice = ti.field(dtype=ti.f32, shape=())
-        self.E_ice = ti.field(dtype=ti.f32, shape=())
-
-        self.gravity = ti.field(dtype=ti.f32, shape=())
 
         # Poisson solvers for pressure and heat.
         self.pressure_solver = PressureSolver(self)
@@ -69,15 +61,20 @@ class AugmentedMPM(BaseSolver):
     def add_particle(self, index: ti.i32, position: ti.template(), geometry: ti.template()):  # pyright: ignore
         # Seed from the geometry and given position:
         self.conductivity_p[index] = geometry.conductivity
+        self.theta_c_p[index] = geometry.material.Theta_c
+        self.theta_s_p[index] = geometry.material.Theta_s
         self.latent_heat_p[index] = geometry.latent_heat
         self.temperature_p[index] = geometry.temperature
+        self.lambda_p[index] = geometry.material.Lambda
+        self.zeta_p[index] = geometry.material.Zeta
         self.capacity_p[index] = geometry.capacity
         self.velocity_p[index] = geometry.velocity
-        self.position_p[index] = position
-        self.lambda_0_p[index] = geometry.lambda_0
+        self.mu_p[index] = geometry.material.Mu
+        self.nu_p[index] = geometry.material.nu
+        self.E_p[index] = geometry.material.E
         self.color_p[index] = geometry.color
         self.phase_p[index] = geometry.phase
-        self.mu_0_p[index] = geometry.mu_0
+        self.position_p[index] = position
 
         # Set properties to default values:
         self.mass_p[index] = self.vol_0_p * geometry.density
@@ -86,23 +83,6 @@ class AugmentedMPM(BaseSolver):
         self.state_p[index] = State.Active
         self.JE_p[index] = 1.0
         self.JP_p[index] = 1.0
-
-    @override
-    def reset(self, configuration: Configuration):
-        self.boundary_temperature[None] = configuration.boundary_temperature
-        self.ambient_temperature[None] = configuration.ambient_temperature
-        self.lambda_0_ice[None] = configuration.lambda_0
-        self.theta_c_ice[None] = configuration.theta_c
-        self.theta_s_ice[None] = configuration.theta_s
-        self.gravity[None] = configuration.gravity
-        self.zeta_ice[None] = configuration.zeta
-        self.mu_0_ice[None] = configuration.mu_0
-        self.nu_ice[None] = configuration.nu
-        self.E_ice[None] = configuration.E
-
-        self.state_p.fill(State.Hidden)
-        self.position_p.fill([42, 42])
-        self.n_particles[None] = 0
 
     @ti.kernel
     def reset_grids(self):
@@ -161,8 +141,8 @@ class AugmentedMPM(BaseSolver):
                 clamped = ti.f32(sigma[d, d])
                 if self.phase_p[p] == Ice.Phase:
                     # Clamp singular values to [1 - theta_c, 1 + theta_s]
-                    clamped = max(clamped, 1 - self.theta_c_ice[None])
-                    clamped = min(clamped, 1 + self.theta_s_ice[None])
+                    clamped = max(clamped, 1 - self.theta_c_p[p])
+                    clamped = min(clamped, 1 + self.theta_s_p[p])
                 self.JP_p[p] *= singular_value / clamped
                 self.JE_p[p] *= clamped
                 sigma[d, d] = clamped
@@ -177,9 +157,9 @@ class AugmentedMPM(BaseSolver):
             #     self.JP_p[p] = 1.0
 
             # Apply ice hardening by adjusting Lame parameters:
-            la, mu = self.lambda_0_p[p], self.mu_0_p[p]
+            la, mu = self.lambda_p[p], self.mu_p[p]
             if self.phase_p[p] == Ice.Phase:
-                hardening = ti.max(0.1, ti.min(20, ti.exp(self.zeta_ice[None] * (1.0 - self.JP_p[p]))))
+                hardening = ti.max(0.1, ti.min(20, ti.exp(self.zeta_p[p] * (1.0 - self.JP_p[p]))))
                 la, mu = la * hardening, mu * hardening
 
             # Eliminate dilational component explicitly [Jiang 2014, Eqn. 8], then
@@ -467,20 +447,14 @@ class AugmentedMPM(BaseSolver):
                     self.latent_heat_p[p] = Water.LatentHeat
                     self.temperature_p[p] = 0.0
                     self.capacity_p[p] = Water.Capacity
-                    self.lambda_0_p[p] = Water.Lambda
+                    self.lambda_p[p] = Water.Lambda
                     self.color_p[p] = Water.Color
                     self.phase_p[p] = Water.Phase
                     self.mass_p[p] = self.vol_0_p * Water.Density
-                    self.mu_0_p[p] = Water.Mu
+                    self.mu_p[p] = Water.Mu
                     self.FE_p[p] = ti.Matrix.identity(ti.f32, self.n_dimensions)
                     self.JP_p[p] = 1.0
                     self.JE_p[p] = 1.0
-
-            # Set the particles lambda, mu values to the values from the GUI sliders:
-            # TODO: this can be removed if the sliders are no longer needed?
-            elif self.phase_p[p] == Ice.Phase:
-                self.lambda_0_p[p] = self.lambda_0_ice[None]
-                self.mu_0_p[p] = self.mu_0_ice[None]
 
             elif (self.phase_p[p] == Water.Phase) and (next_temperature < 0):
                 # Water particle reached the freezing point, additional temperature change is added to heat buffer.
@@ -494,11 +468,11 @@ class AugmentedMPM(BaseSolver):
                     self.latent_heat_p[p] = Ice.LatentHeat
                     self.temperature_p[p] = 0.0
                     self.capacity_p[p] = Ice.Capacity
-                    self.lambda_0_p[p] = self.lambda_0_ice[None]
+                    self.lambda_p[p] = self.lambda_p[p]
                     self.color_p[p] = Ice.Color
                     self.phase_p[p] = Ice.Phase
                     self.mass_p[p] = self.vol_0_p * Ice.Density
-                    self.mu_0_p[p] = self.mu_0_ice[None]
+                    self.mu_p[p] = self.mu_p[p]
                     self.FE_p[p] = ti.Matrix.identity(ti.f32, self.n_dimensions)
                     self.JP_p[p] = 1.0
                     self.JE_p[p] = 1.0

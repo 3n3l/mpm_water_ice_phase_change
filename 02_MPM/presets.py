@@ -1,5 +1,5 @@
-from _common.configurations import Circle, Configuration
-from _common.constants import Snow, PurpleSnow, MagentaSnow
+from _common.configurations import Circle, Configuration, Rectangle
+from _common.constants import Ice, Snow, PurpleSnow, MagentaSnow
 
 # Width of the bounding box, TODO: transform points to coordinates in bounding box
 configuration_list = [
@@ -12,7 +12,7 @@ configuration_list = [
         theta_s=7.5e-3,  # Critical stretch (7.5e-3)
         geometries=[
             Circle(
-                material=Snow, # pyright: ignore
+                material=Snow,  # pyright: ignore
                 center=(0.5, 0.5),
                 velocity=(4, 0),
                 radius=0.08,
@@ -28,10 +28,41 @@ configuration_list = [
         theta_s=7.5e-3,  # Critical stretch (7.5e-3)
         geometries=[
             Circle(
-                material=Snow, # pyright: ignore
+                material=Snow,  # pyright: ignore
                 center=(0.5, 0.5),
                 velocity=(0, -3),
                 radius=0.08,
+            ),
+        ],
+    ),
+    Configuration(
+        name="Ice Cube Fall",
+        geometries=[
+            Rectangle(
+                material=Ice,  # pyright: ignore
+                size=(0.15, 0.15),
+                velocity=(0, 0),
+                lower_left=(0.425, 0.425),
+                temperature=-10.0,
+            )
+        ],
+    ),
+    Configuration(
+        name="Ice Cube vs. Snow Cube",
+        geometries=[
+            Rectangle(
+                material=Ice,  # pyright: ignore
+                size=(0.15, 0.15),
+                velocity=(0, 0),
+                lower_left=(0.225, 0.425),
+                temperature=-10.0,
+            ),
+            Rectangle(
+                material=Snow,  # pyright: ignore
+                size=(0.15, 0.15),
+                velocity=(0, 0),
+                lower_left=(0.625, 0.425),
+                temperature=-10.0,
             ),
         ],
     ),
@@ -44,13 +75,13 @@ configuration_list = [
         theta_s=7.5e-3,  # Critical stretch (7.5e-3)
         geometries=[
             Circle(
-                material=Snow, # pyright: ignore
+                material=Snow,  # pyright: ignore
                 center=(0.07, 0.595),
                 velocity=(3, 0),
                 radius=0.04,
             ),
             Circle(
-                material=Snow, # pyright: ignore
+                material=Snow,  # pyright: ignore
                 center=(0.91, 0.615),
                 velocity=(-3, 0),
                 radius=0.06,
@@ -66,13 +97,13 @@ configuration_list = [
         theta_s=7.5e-3,  # Critical stretch (7.5e-3)
         geometries=[
             Circle(
-                material=MagentaSnow, # pyright: ignore
+                material=MagentaSnow,  # pyright: ignore
                 center=(0.07, 0.595),
                 velocity=(3, 0),
                 radius=0.04,
             ),
             Circle(
-                material=PurpleSnow, # pyright: ignore
+                material=PurpleSnow,  # pyright: ignore
                 center=(0.91, 0.615),
                 velocity=(-3, 0),
                 radius=0.06,
@@ -88,13 +119,13 @@ configuration_list = [
         theta_s=4.0e-3,  # Critical stretch (7.5e-3)
         geometries=[
             Circle(
-                material=Snow, # pyright: ignore
+                material=Snow,  # pyright: ignore
                 center=(0.1, 0.5),
                 velocity=(4, 0),
                 radius=0.07,
             ),
             Circle(
-                material=Snow, # pyright: ignore
+                material=Snow,  # pyright: ignore
                 center=(0.9, 0.53),
                 velocity=(-8, 0),
                 radius=0.07,
@@ -110,13 +141,13 @@ configuration_list = [
         theta_s=4.0e-3,  # Critical stretch (7.5e-3)
         geometries=[
             Circle(
-                material=PurpleSnow, # pyright: ignore
+                material=PurpleSnow,  # pyright: ignore
                 center=(0.1, 0.5),
                 velocity=(4, 0),
                 radius=0.07,
             ),
             Circle(
-                material=MagentaSnow, # pyright: ignore
+                material=MagentaSnow,  # pyright: ignore
                 center=(0.9, 0.53),
                 velocity=(-8, 0),
                 radius=0.07,
@@ -132,13 +163,13 @@ configuration_list = [
         theta_s=4.0e-3,  # Critical stretch (7.5e-3)
         geometries=[
             Circle(
-                material=Snow, # pyright: ignore
+                material=Snow,  # pyright: ignore
                 center=(0.08, 0.5),
                 velocity=(7, 0),
                 radius=0.07,
             ),
             Circle(
-                material=Snow, # pyright: ignore
+                material=Snow,  # pyright: ignore
                 center=(0.9, 0.51),
                 velocity=(-7, 0),
                 radius=0.07,
@@ -154,13 +185,13 @@ configuration_list = [
         theta_s=4.0e-3,  # Critical stretch (7.5e-3)
         geometries=[
             Circle(
-                material=Snow, # pyright: ignore
+                material=MagentaSnow,  # pyright: ignore
                 center=(0.08, 0.5),
                 velocity=(7, 0),
                 radius=0.07,
             ),
             Circle(
-                material=Snow, # pyright: ignore
+                material=PurpleSnow,  # pyright: ignore
                 center=(0.9, 0.51),
                 velocity=(-7, 0),
                 radius=0.07,
@@ -176,13 +207,13 @@ configuration_list = [
         theta_s=4.0e-3,  # Critical stretch (7.5e-3)
         geometries=[
             Circle(
-                material=Snow, # pyright: ignore
+                material=Snow,  # pyright: ignore
                 center=(0.08, 0.5),
-                velocity=(5, 0),
+                velocity=(10, 0),
                 radius=0.05,
             ),
             Circle(
-                material=Snow, # pyright: ignore
+                material=Snow,  # pyright: ignore
                 center=(0.79, 0.51),
                 velocity=(-1, 0),
                 radius=0.15,

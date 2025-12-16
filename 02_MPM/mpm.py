@@ -1,13 +1,9 @@
-from _common.configurations import Configuration
 from _common.solvers import BaseSolver
 from _common.constants import State
 
 from typing import override
 
 import taichi as ti
-
-# TODO: move to constants
-GRAVITY = ti.Vector([0, -9.81])
 
 
 @ti.data_oriented
@@ -16,28 +12,33 @@ class MPM(BaseSolver):
         super().__init__(max_particles, n_grid, dt)
 
         # Particle properties:
+        self.theta_c_p = ti.field(dtype=ti.f32, shape=max_particles)
+        self.theta_s_p = ti.field(dtype=ti.f32, shape=max_particles)
+        self.lambda_p = ti.field(dtype=ti.f32, shape=max_particles)
+        self.mu_0_p = ti.field(dtype=ti.f32, shape=max_particles)
+        self.zeta_p = ti.field(dtype=ti.i32, shape=max_particles)
+        self.nu_p = ti.field(dtype=ti.f32, shape=max_particles)
+        self.E_p = ti.field(dtype=ti.f32, shape=max_particles)
         self.FE_p = ti.Matrix.field(2, 2, dtype=ti.f32, shape=max_particles)
         self.JE_p = ti.field(dtype=ti.f32, shape=max_particles)
         self.JP_p = ti.field(dtype=ti.f32, shape=max_particles)
         self.J_p = ti.field(dtype=ti.f32, shape=max_particles)
         self.C_p = ti.Matrix.field(2, 2, dtype=ti.f32, shape=max_particles)
 
-        # Parameters controlled from the GUI:
-        self.lambda_0 = ti.field(dtype=ti.f32, shape=())
-        self.theta_c = ti.field(dtype=ti.f32, shape=())
-        self.theta_s = ti.field(dtype=ti.f32, shape=())
-        self.mu_0 = ti.field(dtype=ti.f32, shape=())
-        self.zeta = ti.field(dtype=ti.i32, shape=())
-        self.nu = ti.field(dtype=ti.f32, shape=())
-        self.E = ti.field(dtype=ti.f32, shape=())
-
     @ti.func
     @override
     def add_particle(self, index: ti.i32, position: ti.template(), geometry: ti.template()):  # pyright: ignore
         # Seed from the geometry and given position:
+        self.theta_c_p[index] = geometry.material.Theta_c
+        self.theta_s_p[index] = geometry.material.Theta_s
         self.velocity_p[index] = geometry.velocity
         self.position_p[index] = position
-        self.color_p[index] = geometry.color
+        self.lambda_p[index] = geometry.material.Lambda
+        self.color_p[index] = geometry.material.Color
+        self.mu_0_p[index] = geometry.material.Mu
+        self.zeta_p[index] = geometry.material.Zeta
+        self.nu_p[index] = geometry.material.nu
+        self.E_p[index] = geometry.material.E
 
         # Set properties to default values:
         self.mass_p[index] = self.vol_0_p * geometry.density
@@ -46,19 +47,6 @@ class MPM(BaseSolver):
         self.state_p[index] = State.Active
         self.JE_p[index] = 1.0
         self.JP_p[index] = 1.0
-
-    @override
-    def reset(self, configuration: Configuration):
-        self.lambda_0[None] = configuration.lambda_0
-        self.theta_c[None] = configuration.theta_c
-        self.theta_s[None] = configuration.theta_s
-        self.zeta[None] = configuration.zeta
-        self.mu_0[None] = configuration.mu_0
-        self.nu[None] = configuration.nu
-        self.E[None] = configuration.E
-        self.state_p.fill(State.Hidden)
-        self.position_p.fill([42, 42])
-        self.n_particles[None] = 0
 
     @ti.kernel
     def reset_grids(self):
@@ -77,15 +65,15 @@ class MPM(BaseSolver):
             self.FE_p[p] = (ti.Matrix.identity(float, 2) + self.dt * self.C_p[p]) @ self.FE_p[p]  # pyright: ignore
 
             # Apply snow hardening by adjusting Lame parameters
-            h = ti.max(0.1, ti.min(50, ti.exp(self.zeta[None] * (1.0 - self.JP_p[p]))))
-            mu, la = self.mu_0[None] * h, self.lambda_0[None] * h
+            h = ti.max(0.1, ti.min(50, ti.exp(self.zeta_p[p] * (1.0 - self.JP_p[p]))))
+            mu, la = self.mu_0_p[p] * h, self.lambda_p[p] * h
             U, sigma, V = ti.svd(self.FE_p[p])
 
             J = 1.0
             for d in ti.static(range(2)):
                 singular_value = float(sigma[d, d])
-                singular_value = max(singular_value, 1 - self.theta_c[None])
-                singular_value = min(singular_value, 1 + self.theta_s[None])
+                singular_value = max(singular_value, 1 - self.theta_c_p[p])
+                singular_value = min(singular_value, 1 + self.theta_s_p[p])
                 self.JP_p[p] *= sigma[d, d] / singular_value
                 sigma[d, d] = singular_value
                 J *= singular_value
@@ -124,12 +112,11 @@ class MPM(BaseSolver):
 
     @ti.kernel
     def momentum_to_velocity(self):
-        """Forward Euler."""
         for i, j in self.mass_c:
             # Normalize velocity, add gravity:
             if self.mass_c[i, j] > 0:
                 self.velocity_c[i, j] /= self.mass_c[i, j]
-                self.velocity_c[i, j] += self.dt * GRAVITY
+                self.velocity_c[i, j][1] += self.dt * self.gravity[None]
 
             # Sticky simulation boundary:
             if i < 0 or i > self.n_grid or j < 0 or j > self.n_grid:

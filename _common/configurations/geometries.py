@@ -14,6 +14,7 @@ class Geometry(ABC):
         temperature: float,
         material: Material,
     ) -> None:
+        self.material = material
         self.conductivity = material.Conductivity
         self.latent_heat = material.LatentHeat
         self.capacity = material.Capacity

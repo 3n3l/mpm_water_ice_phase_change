@@ -125,56 +125,19 @@ class GGUI_Simulation(BaseSimulation):
         Show all parameters in the subwindow, the user can then adjust these values
         with sliders which will update the correspoding value in the solver.
         """
-        pass
-        # # with self.gui.sub_window("Parameters", 0.01, 0.51, 0.98, 0.48) as subwindow:
-        # with self.gui.sub_window("Parameters", 0.01, 0.66, 0.98, 0.33) as subwindow:
-        #     self.solver.theta_c_ice[None] = subwindow.slider_float(
-        #         text="Critical Compression  [Ice]",
-        #         old_value=self.solver.theta_c_ice[None],
-        #         minimum=1e-2,
-        #         maximum=1e-1,
-        #     )
-        #     self.solver.theta_s_ice[None] = subwindow.slider_float(
-        #         text="Critical Stretch      [Ice]",
-        #         old_value=self.solver.theta_s_ice[None],
-        #         minimum=1e-3,
-        #         maximum=1e-2,
-        #     )
-        #     self.solver.zeta_ice[None] = subwindow.slider_int(
-        #         text="Hardening Coefficient [Ice]",
-        #         old_value=self.solver.zeta_ice[None],
-        #         minimum=1,
-        #         maximum=20,
-        #     )
-        #     self.solver.E_ice[None] = subwindow.slider_float(
-        #         text="Young's Modulus       [Ice]",
-        #         old_value=self.solver.E_ice[None],
-        #         minimum=4.8e4,
-        #         maximum=5.5e5,
-        #     )
-        #     self.solver.nu_ice[None] = subwindow.slider_float(
-        #         text="Poisson's Ratio       [Ice]",
-        #         old_value=self.solver.nu_ice[None],
-        #         minimum=0.1,
-        #         maximum=0.4,
-        #     )
-        #     self.solver.ambient_temperature[None] = subwindow.slider_int(
-        #         text="Ambient Temperature",
-        #         old_value=int(self.solver.ambient_temperature[None]),  # pyright: ignore
-        #         minimum=-273,
-        #         maximum=273,
-        #     )
-        #     self.solver.boundary_temperature[None] = subwindow.slider_int(
-        #         text="Boundary Temperature",
-        #         old_value=int(self.solver.boundary_temperature[None]),  # pyright: ignore
-        #         minimum=-273,
-        #         maximum=273,
-        #     )
-        #
-        # E = self.solver.E_ice[None]
-        # nu = self.solver.nu_ice[None]
-        # self.solver.lambda_0_ice[None] = E * nu / ((1 + nu) * (1 - 2 * nu))
-        # self.solver.mu_0_ice[None] = E / (2 * (1 + nu))
+        with self.gui.sub_window("Parameters", 0.01, 0.66, 0.98, 0.33) as subwindow:
+            self.solver.ambient_temperature[None] = subwindow.slider_int(
+                text="Ambient Temperature",
+                old_value=int(self.solver.ambient_temperature[None]),  # pyright: ignore
+                minimum=-273,
+                maximum=273,
+            )
+            self.solver.boundary_temperature[None] = subwindow.slider_int(
+                text="Boundary Temperature",
+                old_value=int(self.solver.boundary_temperature[None]),  # pyright: ignore
+                minimum=-273,
+                maximum=273,
+            )
 
     def show_buttons(self) -> None:
         """

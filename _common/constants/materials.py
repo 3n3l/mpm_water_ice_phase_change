@@ -1,47 +1,5 @@
+from _common.constants.colors import ColorRGB
 from dataclasses import dataclass
-from taichi import hex_to_rgb
-
-
-@dataclass
-class Classification:
-    Empty = 22
-    Colliding = 33
-    Interior = 44
-    Insulated = 55
-
-
-@dataclass
-class ColorHEX:
-    HeatMap = [0x323296, 0x5050AB, 0x7575BF, 0xDB7F85, 0xD64F58, 0xC73C45]
-    Background = 0x007D79  # teal 60
-    Magenta = 0xFF7EB6  # magenta 40
-    Purple = 0xBE95FF  # purple 40
-    Water = 0x78A9FF  # blue 40
-    Ice = 0xD0E2FF  # blue 20
-
-
-@dataclass
-class ColorRGB:
-    HeatMap = [hex_to_rgb(color) for color in ColorHEX.HeatMap]
-    Background = hex_to_rgb(ColorHEX.Background)
-    Magenta = hex_to_rgb(ColorHEX.Magenta)
-    Purple = hex_to_rgb(ColorHEX.Purple)
-    Water = hex_to_rgb(ColorHEX.Water)
-    Ice = hex_to_rgb(ColorHEX.Ice)
-
-
-@dataclass
-class State:
-    Active = 0
-    Hidden = 1
-
-
-@dataclass
-class Simulation:
-    """Defines parameters for the simulation."""
-
-    MininumTemperature = -273.15
-    MaximumTemperature = 100.0
 
 
 @dataclass
@@ -57,6 +15,13 @@ class Material:
     Phase: int = 0
     Mu: float = 0.0
 
+    # TODO: proper default variables?!
+    E = 1.0
+    nu = 1.0
+    Zeta: int = 10
+    Theta_s: float = 0.0
+    Theta_c: float = 0.0
+
 
 @dataclass
 class Water(Material):
@@ -70,32 +35,46 @@ class Water(Material):
     Mu = 0
 
 
-E = 2.8e5
-nu = 0.15
+# TODO: the materials should also define theta_s, theta_c, zeta
+#       as this differentiates the ice from snow, but then
+#       a multi-material solver would also need to save these
+#       per particle
 
 
 @dataclass
 class Ice(Material):
+    E = 5.8e5
+    nu = 0.1
     Conductivity = 2.33
     LatentHeat = 0.0
     Capacity = 2.093  # j/dC
     Density = 400.0
     Lambda = (E * nu) / ((1 + nu) * (1 - 2 * nu))
     Color = ColorRGB.Ice
-    Phase = 14
+    Phase = 86
     Mu = E / (2 * (1 + nu))
+
+    Zeta: int = 12
+    Theta_s: float = 7.5e-3
+    Theta_c: float = 2.5e-2
 
 
 @dataclass
 class Snow(Material):
+    E = 1.4e5
+    nu = 0.3
     Conductivity = 2.33
     LatentHeat = 0.0
     Capacity = 2.093  # j/dC
     Density = 400.0
     Lambda = (E * nu) / ((1 + nu) * (1 - 2 * nu))
     Color = ColorRGB.Ice
-    Phase = 14
+    Phase = 129
     Mu = E / (2 * (1 + nu))
+
+    Zeta: int = 8
+    Theta_s: float = 6.5e-3
+    Theta_c: float = 2.5e-2
 
 
 @dataclass

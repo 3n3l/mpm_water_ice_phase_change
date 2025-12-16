@@ -1,5 +1,5 @@
+from _common.constants import Classification, State
 from _common.configurations import Configuration
-from _common.constants import Classification
 from abc import ABC, abstractmethod
 
 import taichi as ti
@@ -25,9 +25,10 @@ class BaseSolver(ABC):
         self.negative_boundary = -self.boundary_width
         self.positive_boundary = self.n_grid + self.boundary_width
 
-        # Temperature related fields:
+        # Variables accessed by kernels must be stored in fields:
         self.ambient_temperature = ti.field(dtype=ti.f32, shape=())
         self.boundary_temperature = ti.field(dtype=ti.f32, shape=())
+        self.gravity = ti.field(dtype=ti.f32, shape=())
 
         # Properties on cell centers:
         self.classification_c = ti.field(dtype=ti.i32, shape=(self.w_grid, self.w_grid), offset=self.w_offset)
@@ -79,12 +80,16 @@ class BaseSolver(ABC):
             else:
                 self.classification_c[i, j] = Classification.Empty
 
-    @abstractmethod
-    def substep(self):
-        pass
+    def reset(self, configuration: Configuration):
+        self.boundary_temperature[None] = configuration.boundary_temperature
+        self.ambient_temperature[None] = configuration.ambient_temperature
+        self.gravity[None] = configuration.gravity
+        self.state_p.fill(State.Hidden)
+        self.position_p.fill([42, 42])
+        self.n_particles[None] = 0
 
     @abstractmethod
-    def reset(self, configuration: Configuration):
+    def substep(self):
         pass
 
     @abstractmethod

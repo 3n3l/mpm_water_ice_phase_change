@@ -1,13 +1,9 @@
-from _common.configurations import Configuration
 from _common.constants import State, Classification
 from _common.solvers import BaseSolver
 
 from taichi.linalg import SparseMatrixBuilder, SparseCG
-from typing import override
 
 import taichi as ti
-
-GRAVITY = -9.81
 
 
 @ti.data_oriented
@@ -110,7 +106,7 @@ class APIC(BaseSolver):
         for i, j in self.velocity_y:
             if (mass := self.mass_y[i, j]) > 0:
                 self.velocity_y[i, j] /= mass
-                self.velocity_y[i, j] += GRAVITY * self.dt
+                self.velocity_y[i, j] += self.gravity[None] * self.dt
                 collision_top = j >= self.n_grid and self.velocity_y[i, j] > 0
                 collision_bottom = j <= 0 and self.velocity_y[i, j] < 0
                 if collision_top or collision_bottom:
@@ -248,12 +244,6 @@ class APIC(BaseSolver):
             self.cy_p[p] = b_y * 4 * self.inv_dx
             self.velocity_p[p] = next_velocity
             self.position_p[p] += self.dt * next_velocity
-
-    @override
-    def reset(self, configuration: Configuration):
-        self.state_p.fill(State.Hidden)
-        self.position_p.fill([42, 42])
-        self.n_particles[None] = 0
 
     @ti.func
     def add_particle(self, index: ti.i32, position: ti.template(), geometry: ti.template()):  # pyright: ignore
