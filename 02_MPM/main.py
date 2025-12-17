@@ -6,24 +6,27 @@ sys.path.append(os.path.dirname(tests_dir))
 from _common.simulation import GGUI_Simulation, GUI_Simulation
 from _common.samplers import BasePoissonDiskSampler
 
-from parsing import arguments, should_use_implicit_update
-from presets import configuration_list
-from mpm import MPM
+from _common.parsers.parsing import parser, add_configuration
+from _common.presets import ice_presets, snow_presets
+from snow_mpm import MPM
 
 import taichi as ti
 
 
 def main():
+    configurations = ice_presets + snow_presets
+    add_configuration(configurations)
+    arguments = parser.parse_args()
+
     # Initialize Taichi on the chosen architecture:
     if arguments.arch.lower() == "cpu":
-        ti.init(arch=ti.cpu, debug=True)
-        # ti.init(arch=ti.cpu, debug=arguments.debug)
+        ti.init(arch=ti.cpu, debug=arguments.debug)
     elif arguments.arch.lower() == "gpu":
         ti.init(arch=ti.gpu, debug=arguments.debug)
     else:
         ti.init(arch=ti.cuda, debug=arguments.debug)
 
-    initial_configuration = arguments.configuration % len(configuration_list)
+    initial_configuration = arguments.configuration % len(configurations)
     name = "Material Point Method for Snow Simulation"
     prefix = "MPM"
 
@@ -37,7 +40,7 @@ def main():
         renderer = GGUI_Simulation(
             initial_configuration=initial_configuration,
             sampler=poisson_disk_sampler,
-            configurations=configuration_list,
+            configurations=configurations,
             solver=mpm_solver,
             res=(720, 720),
             prefix=prefix,
@@ -49,8 +52,8 @@ def main():
     #     renderer = GUI_Simulation
     #         initial_configuration=initial_configuration,
     #         sampler=poisson_disk_sampler,
-    #         configurations=configuration_list,
-    #         name=simulation_name,
+    #         configurations=configurations,
+    #         name=name,
     #         solver=mpm_solver,
     #         res=720,
     #     )
