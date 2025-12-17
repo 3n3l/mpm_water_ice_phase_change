@@ -1,4 +1,4 @@
-from presets import configuration_list
+from _common.presets import water_presets
 
 from argparse import ArgumentParser, RawTextHelpFormatter
 
@@ -6,7 +6,7 @@ epilog = "Press R to reset, SPACE to pause/unpause the simulation!"
 parser = ArgumentParser(prog="main.py", epilog=epilog, formatter_class=RawTextHelpFormatter)
 
 configuration_help = (
-    f"Available Configurations:\n{'\n'.join([f'[{i}] -> {c.name}' for i, c in enumerate(configuration_list)])}"
+    f"Available Configurations:\n{'\n'.join([f'[{i}] -> {c.name}' for i, c in enumerate(water_presets)])}"
 )
 parser.add_argument(
     "-c",

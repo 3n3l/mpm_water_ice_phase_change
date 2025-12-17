@@ -7,7 +7,7 @@ from _common.simulation import GGUI_Simulation, GUI_Simulation
 from _common.samplers import BasePoissonDiskSampler
 
 from parsing import arguments, should_use_cuda_backend, should_use_collocated
-from presets import configuration_list
+from _common.presets import water_presets
 from apic import APIC
 
 import taichi as ti
@@ -17,7 +17,7 @@ def main():
     # Initialize Taichi on the chosen architecture:
     ti.init(arch=ti.cuda if should_use_cuda_backend else ti.cpu, debug=False)
 
-    initial_configuration = arguments.configuration % len(configuration_list)
+    initial_configuration = arguments.configuration % len(water_presets)
     name = f"Affine Particle-In-Cell Method"
     prefix = f"APIC"
 
@@ -29,7 +29,7 @@ def main():
     sampler = BasePoissonDiskSampler(solver=solver, r=radius, k=30)
     simulation = GGUI_Simulation(
         initial_configuration=initial_configuration,
-        configurations=configuration_list,
+        configurations=water_presets,
         sampler=sampler,
         solver=solver,
         prefix=prefix,

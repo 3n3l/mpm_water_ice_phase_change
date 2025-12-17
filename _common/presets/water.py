@@ -1,9 +1,25 @@
 from _common.configurations import Circle, Rectangle, Configuration
 from _common.constants import Water
 
-configuration_list = [
+water_presets = [
     Configuration(
-        name="Waterjet Hits Pool",
+        name="Waterjet",
+        information="Water",
+        dt = 1e-3,
+        geometries=[
+            Rectangle(
+                material=Water,  # pyright: ignore
+                lower_left=(0.47, 0.8),
+                velocity=(0, -1),
+                size=(0.06, 0.06),
+                frame_threshold=i,
+            )
+            for i in range(1, 200)
+        ],
+    ),
+    Configuration(
+        name="Waterjet & Pool",
+        information="Water",
         dt = 1e-3,
         geometries=[
             Rectangle(
@@ -14,7 +30,7 @@ configuration_list = [
             ),
             *[
                 Rectangle(
-                    lower_left=(0.47, 0.9),
+                    lower_left=(0.47, 0.8),
                     material=Water,  # pyright: ignore
                     velocity=(0, -2),
                     size=(0.06, 0.06),
@@ -26,6 +42,7 @@ configuration_list = [
     ),
     Configuration(
         name="Dam Break",
+        information="Water",
         dt = 1e-3,
         geometries=[
             Rectangle(
@@ -37,7 +54,8 @@ configuration_list = [
         ],
     ),
     Configuration(
-        name="Centered Dam Break",
+        name="Dam Break, Centered",
+        information="Water",
         dt = 1e-3,
         geometries=[
             Rectangle(
@@ -49,33 +67,21 @@ configuration_list = [
         ],
     ),
     Configuration(
-        name="Waterjet",
-        dt = 1e-3,
-        geometries=[
-            Rectangle(
-                material=Water,  # pyright: ignore
-                lower_left=(0.47, 0.9),
-                velocity=(0, -1),
-                size=(0.06, 0.06),
-                frame_threshold=i,
-            )
-            for i in range(1, 200)
-        ],
-    ),
-    Configuration(
-        name="Spherefall",
+        name="Spherefall, Water",
+        information="Water",
         dt = 1e-3,
         geometries=[
             Circle(
                 material=Water,  # pyright: ignore
-                center=(0.5, 0.5),
-                velocity=(0, -1),
+                center=(0.5, 0.4),
+                velocity=(0, -3),
                 radius=0.1,
             ),
         ],
     ),
     Configuration(
-        name="Stationary Pool",
+        name="Pool",
+        information="Water",
         dt = 1e-3,
         geometries=[
             Rectangle(
@@ -87,6 +93,3 @@ configuration_list = [
         ],
     ),
 ]
-
-# Sort alphabetically:
-configuration_list.sort(key=lambda c: str.lower(c.name), reverse=False)

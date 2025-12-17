@@ -52,9 +52,17 @@ class BaseSimulation:
         self.sampler = sampler
         self.solver = solver
 
-        # Load the initial configuration and reset the solver to this configuration.
+        # Store configurations, sort them and add information:
         self.current_frame = 0
         self.configurations = configurations
+        self.configurations.sort(key=lambda c: str.lower(c.name), reverse=False)
+        max_length = len(max(self.configurations, key=lambda c: len(c.name)).name)
+        for i, c in enumerate(self.configurations):
+            name = self.configurations[i].name
+            information = self.configurations[i].information
+            c.name = f"{f' ({i})':5s} {name:{max_length}s} [{information}]"
+
+        # Load the initial configuration and reset the solver to this configuration.
         self.configuration_id = initial_configuration
         self.load_configuration(configurations[self.configuration_id])
 
