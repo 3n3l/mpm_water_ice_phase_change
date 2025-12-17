@@ -1,6 +1,6 @@
 from _common.constants import ColorRGB, State, Simulation
 from _common.configurations import Configuration
-from _common.samplers import BasePoissonDiskSampler
+from _common.samplers import PoissonDiskSampler
 from _common.simulation import BaseSimulation
 from _common.solvers import CollocatedSolver
 
@@ -25,7 +25,7 @@ class GGUI_Simulation(BaseSimulation):
     def __init__(
         self,
         configurations: list[Configuration],
-        sampler: BasePoissonDiskSampler,
+        sampler: PoissonDiskSampler,
         res: tuple[int, int],
         solver: CollocatedSolver,
         prefix: str,
@@ -36,6 +36,7 @@ class GGUI_Simulation(BaseSimulation):
         super().__init__(
             initial_configuration=initial_configuration,
             configurations=configurations,
+            radius=radius,
             prefix=prefix,
             sampler=sampler,
             solver=solver,
@@ -46,7 +47,6 @@ class GGUI_Simulation(BaseSimulation):
         self.window = ti.ui.Window(name, res, fps_limit=self.fps)
         self.canvas = self.window.get_canvas()
         self.gui = self.window.get_gui()
-        self.radius = radius
 
         # Fields that hold certain colors, must be update in each draw call.
         self.temperature_colors_p = ti.Vector.field(3, dtype=ti.f32, shape=self.solver.max_particles)
@@ -271,9 +271,7 @@ class GGUI_Simulation(BaseSimulation):
         self.canvas.contour(self.scratch_field, cmap_name="magma", normalize=True)
 
     def render(self) -> None:
-        """
-        Renders the simulation with the data from the MLS-MPM solver.
-        """
+        """Render the simulation."""
         # Draw chosen foreground/background, NOTE: foreground must be drawn last.
         for option in self.background_options + self.foreground_options:
             if option.is_active:
@@ -285,7 +283,7 @@ class GGUI_Simulation(BaseSimulation):
         self.window.show()
 
     def run(self) -> None:
-        """Runs this simulation."""
+        """Run the simulation."""
         while self.window.running:
             self.handle_events()
             self.show_settings()

@@ -161,8 +161,9 @@ class APIC(StaggeredSolver):
     def add_particle(self, index: ti.i32, position: ti.template(), geometry: ti.template()):  # pyright: ignore
         # Seed from the geometry and given position:
         self.velocity_p[index] = geometry.velocity
-        self.position_p[index] = position
         self.color_p[index] = geometry.color
+        self.phase_p[index] = geometry.phase
+        self.position_p[index] = position
 
         # Set properties to default values:
         self.state_p[index] = State.Active

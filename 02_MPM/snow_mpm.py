@@ -31,14 +31,15 @@ class MPM(CollocatedSolver):
         # Seed from the geometry and given position:
         self.theta_c_p[index] = geometry.material.Theta_c
         self.theta_s_p[index] = geometry.material.Theta_s
-        self.velocity_p[index] = geometry.velocity
-        self.position_p[index] = position
         self.lambda_p[index] = geometry.material.Lambda
         self.color_p[index] = geometry.material.Color
-        self.mu_0_p[index] = geometry.material.Mu
         self.zeta_p[index] = geometry.material.Zeta
+        self.velocity_p[index] = geometry.velocity
+        self.mu_0_p[index] = geometry.material.Mu
         self.nu_p[index] = geometry.material.nu
         self.E_p[index] = geometry.material.E
+        self.phase_p[index] = geometry.phase
+        self.position_p[index] = position
 
         # Set properties to default values:
         self.mass_p[index] = self.vol_0_p * geometry.density

@@ -1,5 +1,5 @@
 from _common.configurations import Configuration
-from _common.samplers import BasePoissonDiskSampler
+from _common.samplers import PoissonDiskSampler
 from _common.solvers import CollocatedSolver
 
 from abc import abstractmethod
@@ -14,8 +14,9 @@ class BaseSimulation:
     def __init__(
         self,
         configurations: list[Configuration],
-        sampler: BasePoissonDiskSampler,
+        sampler: PoissonDiskSampler,
         solver: CollocatedSolver,
+        radius: float,
         prefix: str,
         name: str,
         initial_configuration: int = 0,
@@ -36,6 +37,7 @@ class BaseSimulation:
         self.should_create_gif = False
         self.is_showing_settings = not self.is_paused  # wether the settings are showing
         self.should_show_settings = True  # wether the settings should be shown
+        self.radius = radius
         self.fps = fps
 
         # Name and video/gif prefix

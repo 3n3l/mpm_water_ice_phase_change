@@ -1,10 +1,8 @@
-from _common.samplers import BasePoissonDiskSampler
+from _common.samplers import PoissonDiskSampler
 from _common.configurations import Configuration
 from _common.simulation import BaseSimulation
-from _common.constants import ColorHEX
+from _common.constants import ColorHEX, Water
 from _common.solvers import CollocatedSolver
-
-from abc import abstractmethod
 
 import taichi as ti
 
@@ -14,8 +12,9 @@ class GUI_Simulation(BaseSimulation):
     def __init__(
         self,
         configurations: list[Configuration],
-        sampler: BasePoissonDiskSampler,
+        sampler: PoissonDiskSampler,
         solver: CollocatedSolver,
+        radius: float,
         prefix: str,
         name: str,
         res: int,
@@ -34,6 +33,7 @@ class GUI_Simulation(BaseSimulation):
             configurations=configurations,
             prefix=prefix,
             sampler=sampler,
+            radius=radius,
             solver=solver,
             name=name,
         )
@@ -41,8 +41,17 @@ class GUI_Simulation(BaseSimulation):
         # GUI.
         self.gui = ti.GUI(name, res=res, background_color=ColorHEX.Background)
 
+    def render(self) -> None:
+        """Render the simulation."""
+        indices = [0 if p == Water.Phase else 1 for p in self.solver.phase_p.to_numpy()]
+        position = self.solver.position_p.to_numpy()
+        palette = [ColorHEX.Water, ColorHEX.Ice]
+        radius = self.radius * 1000
+        self.gui.circles(position, radius, palette=palette, palette_indices=indices)  # pyright: ignore
+        self.gui.show()
+
     def run(self) -> None:
-        """Runs this simulation."""
+        """Run the simulation."""
         while self.gui.running:
             if self.gui.get_event(ti.GUI.PRESS):
                 if self.gui.event.key == "r":  # pyright: ignore
@@ -54,8 +63,3 @@ class GUI_Simulation(BaseSimulation):
             if not self.is_paused:
                 self.substep()
             self.render()
-
-    @abstractmethod
-    def render(self) -> None:
-        """Renders the simulation with the data from the MLS-MPM solver."""
-        pass

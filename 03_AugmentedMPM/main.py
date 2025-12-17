@@ -3,10 +3,10 @@ import sys, os, math
 tests_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(tests_dir))
 
+from _common.presets import ice_presets, water_presets, mixed_presets
 from _common.parsers.parsing import parser, add_configuration
 from _common.simulation import GGUI_Simulation, GUI_Simulation
-from _common.samplers import BasePoissonDiskSampler
-from _common.presets import ice_presets, water_presets, mixed_presets
+from _common.samplers import PoissonDiskSampler
 
 from augmented_mpm import AugmentedMPM
 
@@ -17,6 +17,7 @@ def main():
     configurations = ice_presets + water_presets + mixed_presets
     add_configuration(configurations)
     arguments = parser.parse_args()
+    print(parser.epilog)
 
     # Initialize Taichi on the chosen architecture:
     if arguments.arch.lower() == "cpu":
@@ -35,7 +36,7 @@ def main():
     vol_0 = math.pi * (radius**2)
 
     solver = AugmentedMPM(max_particles=max_particles, n_grid=n_grid, vol_0=vol_0)
-    poisson_disk_sampler = BasePoissonDiskSampler(solver=solver, r=radius, k=30)
+    poisson_disk_sampler = PoissonDiskSampler(solver=solver, r=radius, k=30)
     if arguments.gui.lower() == "ggui":
         simulation = GGUI_Simulation(
             initial_configuration=initial_configuration,
@@ -48,17 +49,18 @@ def main():
             name=name,
         )
         simulation.run()
-    # elif arguments.gui.lower() == "gui":
-    #     simulation = GUI_Simulation(
-    #         initial_configuration=initial_configuration,
-    #         configurations=configurations,
-    #         sampler=poisson_disk_sampler,
-    #         prefix=prefix,
-    #         solver=solver,
-    #         name=name,
-    #         res=720,
-    #     )
-    #     simulation.run()
+    elif arguments.gui.lower() == "gui":
+        simulation = GUI_Simulation(
+            initial_configuration=initial_configuration,
+            configurations=configurations,
+            sampler=poisson_disk_sampler,
+            prefix=prefix,
+            solver=solver,
+            radius=radius,
+            name=name,
+            res=720,
+        )
+        simulation.run()
 
     print("\n", "#" * 100, sep="")
     print("###", name)

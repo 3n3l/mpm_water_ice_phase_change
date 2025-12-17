@@ -7,7 +7,7 @@ import taichi as ti
 
 
 @ti.data_oriented
-class BasePoissonDiskSampler(ABC):
+class PoissonDiskSampler(ABC):
     def __init__(
         self,
         solver: CollocatedSolver,

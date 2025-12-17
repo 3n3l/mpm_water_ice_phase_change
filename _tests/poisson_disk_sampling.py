@@ -1,7 +1,7 @@
 import utils
 
 from _common.configurations import Rectangle, Circle
-from _common.samplers import BasePoissonDiskSampler
+from _common.samplers import PoissonDiskSampler
 from _common.constants import Ice, ColorRGB, State
 
 import taichi as ti
@@ -20,7 +20,7 @@ n_particles[None] = 0
 
 
 @ti.data_oriented
-class PoissonDiskSampler(BasePoissonDiskSampler):
+class PoissonDiskSampler(PoissonDiskSampler):
     def __init__(
         self,
         position_p: ti.template(),  # pyright: ignore

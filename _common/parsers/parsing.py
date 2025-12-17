@@ -2,7 +2,8 @@ from _common.configurations import Configuration
 
 from argparse import ArgumentParser, RawTextHelpFormatter
 
-epilog = "Press R to reset, SPACE to pause/unpause the simulation!"
+
+epilog = "\n\033[91m>>> Press R to [R]eset, [S]PACE to pause/unpause the [S]imulation!\033[0m\n"
 parser = ArgumentParser(prog="main.py", epilog=epilog, formatter_class=RawTextHelpFormatter)
 
 

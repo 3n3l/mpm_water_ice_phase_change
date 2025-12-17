@@ -4,10 +4,10 @@ tests_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(tests_dir))
 
 from _common.simulation import GGUI_Simulation, GUI_Simulation
-from _common.samplers import BasePoissonDiskSampler
-
 from _common.parsers.parsing import parser, add_configuration
 from _common.presets import ice_presets, snow_presets
+from _common.samplers import PoissonDiskSampler
+
 from snow_mpm import MPM
 
 import taichi as ti
@@ -17,6 +17,7 @@ def main():
     configurations = ice_presets + snow_presets
     add_configuration(configurations)
     arguments = parser.parse_args()
+    print(parser.epilog)
 
     # Initialize Taichi on the chosen architecture:
     if arguments.arch.lower() == "cpu":
@@ -35,7 +36,7 @@ def main():
     vol_0 = math.pi * (radius**2)
 
     mpm_solver = MPM(max_particles, n_grid, vol_0)
-    poisson_disk_sampler = BasePoissonDiskSampler(solver=mpm_solver, r=radius, k=10)
+    poisson_disk_sampler = PoissonDiskSampler(solver=mpm_solver, r=radius, k=10)
     if arguments.gui.lower() == "ggui":
         renderer = GGUI_Simulation(
             initial_configuration=initial_configuration,
@@ -48,16 +49,18 @@ def main():
             name=name,
         )
         renderer.run()
-    # elif arguments.gui.lower() == "gui":
-    #     renderer = GUI_Simulation
-    #         initial_configuration=initial_configuration,
-    #         sampler=poisson_disk_sampler,
-    #         configurations=configurations,
-    #         name=name,
-    #         solver=mpm_solver,
-    #         res=720,
-    #     )
-    #     renderer.run()
+    elif arguments.gui.lower() == "gui":
+        renderer = GUI_Simulation(
+            initial_configuration=initial_configuration,
+            configurations=configurations,
+            sampler=poisson_disk_sampler,
+            solver=mpm_solver,
+            prefix=prefix,
+            radius=radius,
+            name=name,
+            res=720,
+        )
+        renderer.run()
 
     print("\n", "#" * 100, sep="")
     print("###", name)
