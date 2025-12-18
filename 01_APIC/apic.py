@@ -49,23 +49,23 @@ class APIC(StaggeredSolver):
             dist_x = self.position_p[p] * self.inv_dx - ti.cast(base_x, ti.f32) - self.dist_offset_x
             dist_y = self.position_p[p] * self.inv_dx - ti.cast(base_y, ti.f32) - self.dist_offset_y
 
-            # Quadratic kernels (JST16, Eqn. 123, with x=fx, fx-1, fx-2):
-            # Based on https://www.bilibili.com/opus/662560355423092789
-            w_x = [0.5 * (1.5 - dist_x) ** 2, 0.75 - (dist_x - 1) ** 2, 0.5 * (dist_x - 0.5) ** 2]
-            w_y = [0.5 * (1.5 - dist_y) ** 2, 0.75 - (dist_y - 1) ** 2, 0.5 * (dist_y - 0.5) ** 2]
+            # Quadratic kernels:
+            w_x = self.compute_quadratic_kernel(dist_x)
+            w_y = self.compute_quadratic_kernel(dist_y)
 
             for i, j in ti.static(ti.ndrange(3, 3)):  # Loop over 3x3 grid node neighborhood
-                offset = ti.Vector([i, j])
+                velocity_x, velocity_y = self.velocity_p[p][0], self.velocity_p[p][1]
                 weight_x = w_x[i][0] * w_x[j][1]
                 weight_y = w_y[i][0] * w_y[j][1]
-                self.mass_x[base_x + offset] += weight_x
-                self.mass_y[base_y + offset] += weight_y
+                offset = ti.Vector([i, j])
                 dpos_x = ti.cast(offset - dist_x, ti.f32) * self.dx
                 dpos_y = ti.cast(offset - dist_y, ti.f32) * self.dx
-                velocity_x = self.velocity_p[p][0] + (self.cx_p[p] @ dpos_x)
-                velocity_y = self.velocity_p[p][1] + (self.cy_p[p] @ dpos_y)
-                self.velocity_x[base_x + offset] += weight_x * velocity_x
-                self.velocity_y[base_y + offset] += weight_y * velocity_y
+
+                # Rasterize to cell faces:
+                self.velocity_x[base_x + offset] += weight_x * (velocity_x + (self.cx_p[p] @ dpos_x))
+                self.velocity_y[base_y + offset] += weight_y * (velocity_y + (self.cy_p[p] @ dpos_y))
+                self.mass_x[base_x + offset] += weight_x
+                self.mass_y[base_y + offset] += weight_y
 
     @ti.kernel
     def classify_cells(self):
@@ -129,10 +129,9 @@ class APIC(StaggeredSolver):
             dist_x = self.position_p[p] * self.inv_dx - ti.cast(base_x, ti.f32) - self.dist_offset_x
             dist_y = self.position_p[p] * self.inv_dx - ti.cast(base_y, ti.f32) - self.dist_offset_y
 
-            # Quadratic kernels (JST16, Eqn. 123, with x=fx, fx-1, fx-2)
-            # Based on https://www.bilibili.com/opus/662560355423092789
-            w_x = [0.5 * (1.5 - dist_x) ** 2, 0.75 - (dist_x - 1) ** 2, 0.5 * (dist_x - 0.5) ** 2]
-            w_y = [0.5 * (1.5 - dist_y) ** 2, 0.75 - (dist_y - 1) ** 2, 0.5 * (dist_y - 0.5) ** 2]
+            # Quadratic kernels:
+            w_x = self.compute_quadratic_kernel(dist_x)
+            w_y = self.compute_quadratic_kernel(dist_y)
 
             next_velocity = ti.Vector.zero(ti.f32, 2)
             b_x = ti.Vector.zero(ti.f32, 2)

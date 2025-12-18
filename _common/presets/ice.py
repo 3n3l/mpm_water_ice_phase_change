@@ -5,8 +5,8 @@ ice_presets = [
     Configuration(
         name="Spherefall, Ice",
         information="Ice",
-        gravity = -9.81,
-        dt = 1e-4,
+        gravity=-9.81,
+        dt=1e-4,
         geometries=[
             Circle(
                 material=Ice,  # pyright: ignore

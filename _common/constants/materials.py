@@ -35,12 +35,6 @@ class Water(Material):
     Mu = 0
 
 
-# TODO: the materials should also define theta_s, theta_c, zeta
-#       as this differentiates the ice from snow, but then
-#       a multi-material solver would also need to save these
-#       per particle
-
-
 @dataclass
 class Ice(Material):
     E = 5.8e5

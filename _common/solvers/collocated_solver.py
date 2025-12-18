@@ -79,6 +79,35 @@ class CollocatedSolver(ABC):
             else:
                 self.classification_c[i, j] = Classification.Empty
 
+    @ti.func
+    def compute_cubic_kernel(self, distance: ti.template()) -> ti.template():  # pyright: ignore
+        """
+        Cubic kernels [JST16 eq. 122], with x=fx, x=|fx-1|, x=|fx-2|, x=|fx-3|.
+        Based on https://www.bilibili.com/opus/662560355423092789
+
+        ---
+        Arguments:
+            - distance: vector, distance between base cell and particle position
+        """
+        return [
+            ((-0.166 * distance**3) + (distance**2) - (2 * distance) + 1.33),
+            ((0.5 * ti.abs(distance - 1.0) ** 3) - ((distance - 1.0) ** 2) + 0.66),
+            ((0.5 * ti.abs(distance - 2.0) ** 3) - ((distance - 2.0) ** 2) + 0.66),
+            ((-0.166 * ti.abs(distance - 3.0) ** 3) + ((distance - 3.0) ** 2) - (2 * ti.abs(distance - 3.0)) + 1.33),
+        ]
+
+    @ti.func
+    def compute_quadratic_kernel(self, distance: ti.template()) -> ti.template():  # pyright: ignore
+        """
+        Quadratic kernels [JST16 eq. 123], with x=fx, fx-1, fx-2).
+        Based on https://www.bilibili.com/opus/662560355423092789
+
+        ---
+        Arguments:
+            - distance: vector, distance between base cell and particle position
+        """
+        return [0.5 * (1.5 - distance) ** 2, 0.75 - (distance - 1) ** 2, 0.5 * (distance - 0.5) ** 2]
+
     def reset(self, configuration: Configuration):
         self.boundary_temperature[None] = configuration.boundary_temperature
         self.ambient_temperature[None] = configuration.ambient_temperature

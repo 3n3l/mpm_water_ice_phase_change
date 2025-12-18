@@ -20,30 +20,29 @@ class MPM(CollocatedSolver):
         self.FE_p = ti.Matrix.field(2, 2, dtype=ti.f32, shape=max_particles)
         self.JE_p = ti.field(dtype=ti.f32, shape=max_particles)
         self.JP_p = ti.field(dtype=ti.f32, shape=max_particles)
-        self.J_p = ti.field(dtype=ti.f32, shape=max_particles)
         self.C_p = ti.Matrix.field(2, 2, dtype=ti.f32, shape=max_particles)
 
     @ti.func
     @override
     def add_particle(self, index: ti.i32, position: ti.template(), geometry: ti.template()):  # pyright: ignore
         # Seed from the geometry and given position:
+        self.velocity_p[index] = geometry.velocity
+        self.position_p[index] = position
         self.theta_c_p[index] = geometry.material.Theta_c
         self.theta_s_p[index] = geometry.material.Theta_s
         self.lambda_p[index] = geometry.material.Lambda
         self.color_p[index] = geometry.material.Color
-        self.zeta_p[index] = geometry.material.Zeta
-        self.velocity_p[index] = geometry.velocity
-        self.mu_0_p[index] = geometry.material.Mu
         self.phase_p[index] = geometry.phase
-        self.position_p[index] = position
+        self.zeta_p[index] = geometry.material.Zeta
+        self.mu_0_p[index] = geometry.material.Mu
 
         # Set properties to default values:
+        self.state_p[index] = State.Active
         self.mass_p[index] = self.vol_0_p * geometry.density
         self.FE_p[index] = ti.Matrix([[1, 0], [0, 1]])
-        self.C_p[index] = ti.Matrix.zero(float, 2, 2)
-        self.state_p[index] = State.Active
         self.JE_p[index] = 1.0
         self.JP_p[index] = 1.0
+        self.C_p[index] = ti.Matrix.zero(float, 2, 2)
 
     @ti.kernel
     def reset_grids(self):
@@ -58,8 +57,8 @@ class MPM(CollocatedSolver):
             if self.state_p[p] == State.Hidden:
                 continue
 
-            # Deformation gradient update
-            self.FE_p[p] = (ti.Matrix.identity(float, 2) + self.dt[None] * self.C_p[p]) @ self.FE_p[p]  # pyright: ignore
+            # Update deformation gradient:
+            self.FE_p[p] += (self.dt[None] * self.C_p[p]) @ self.FE_p[p]  # pyright: ignore
 
             # Apply snow hardening by adjusting Lame parameters
             h = ti.max(0.1, ti.min(50, ti.exp(self.zeta_p[p] * (1.0 - self.JP_p[p]))))
@@ -95,8 +94,8 @@ class MPM(CollocatedSolver):
             # Distance between lower left corner and particle position:
             dist = self.position_p[p] * self.inv_dx - ti.cast(base, ti.f32)
 
-            # Quadratic kernels  [http://mpm.graphics   Eqn. 123, with x=fx, fx-1,fx-2]
-            w = [0.5 * (1.5 - dist) ** 2, 0.75 - (dist - 1) ** 2, 0.5 * (dist - 0.5) ** 2]
+            # Quadratic kernels:
+            w = self.compute_quadratic_kernel(dist)
 
             # Rasterize mass and velocity
             for i, j in ti.static(ti.ndrange(3, 3)):  # Loop over 3x3 grid node neighborhood
@@ -126,14 +125,20 @@ class MPM(CollocatedSolver):
             if self.state_p[p] == State.Hidden:
                 continue
 
+            # Lower left corner of the interpolation grid:
+            # Based on https://www.bilibili.com/opus/662560355423092789
             base = ti.floor((self.position_p[p] * self.inv_dx - ti.Vector([0.5, 0.5])), dtype=ti.i32)
-            dist = self.position_p[p] * self.inv_dx - ti.cast(base, ti.f32)
-            w = [0.5 * (1.5 - dist) ** 2, 0.75 - (dist - 1.0) ** 2, 0.5 * (dist - 0.5) ** 2]
 
-            C = ti.Matrix.zero(float, 2, 2)
-            v = ti.Vector.zero(float, 2)
+            # Distance between lower left corner and particle position:
+            dist = self.position_p[p] * self.inv_dx - ti.cast(base, ti.f32)
+
+            # Quadratic kernels:
+            w = self.compute_quadratic_kernel(dist)
+
+            C = ti.Matrix.zero(ti.f32, 2, 2)
+            v = ti.Vector.zero(ti.f32, 2)
             for i, j in ti.static(ti.ndrange(3, 3)):  # Loop over 3x3 grid node neighborhood
-                dpos = ti.Vector([i, j]).cast(float) - dist
+                dpos = ti.Vector([i, j]).cast(ti.f32) - dist
                 g_v = self.velocity_c[base + ti.Vector([i, j])]
                 weight = w[i][0] * w[j][1]
                 C += 4 * self.inv_dx * weight * g_v.outer_product(dpos)

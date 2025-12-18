@@ -143,12 +143,15 @@ class GGUI_Simulation(BaseSimulation):
                 maximum=-9.81,
             )
             # NOTE: dt needs to be scaled, otherwise the precision of slider_float is not enough
-            self.solver.dt[None] = subwindow.slider_float(
-                text="10 * dt",
-                old_value=self.solver.dt[None] * 10,  # pyright: ignore
-                minimum=1e-3,
-                maximum=3e-2,
-            ) / 10
+            self.solver.dt[None] = (
+                subwindow.slider_float(
+                    text="10 * dt",
+                    old_value=self.solver.dt[None] * 10,  # pyright: ignore
+                    minimum=1e-3,
+                    maximum=3e-2,
+                )
+                / 10
+            )
 
     def show_buttons(self) -> None:
         """
@@ -208,8 +211,8 @@ class GGUI_Simulation(BaseSimulation):
 
     @ti.kernel
     def update_temperature_p(self):
-        max_temperature = Simulation.MaximumTemperature
-        min_temperature = Simulation.MininumTemperature
+        max_temperature = Simulation.MaxTemperature
+        min_temperature = Simulation.MinTemperature
 
         # Get min, max values for normalization:
         if self.should_normalize_temperature:

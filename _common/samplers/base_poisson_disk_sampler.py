@@ -5,7 +5,6 @@ from abc import ABC
 import taichi as ti
 
 
-
 @ti.data_oriented
 class PoissonDiskSampler(ABC):
     def __init__(

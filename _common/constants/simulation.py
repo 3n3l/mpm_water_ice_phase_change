@@ -9,7 +9,6 @@ class Classification:
     Insulated = 55
 
 
-
 @dataclass
 class State:
     Active = 0
@@ -20,5 +19,5 @@ class State:
 class Simulation:
     """Defines parameters for the simulation."""
 
-    MininumTemperature = -273.15
-    MaximumTemperature = 100.0
+    MinTemperature = -273.15
+    MaxTemperature = 100.0

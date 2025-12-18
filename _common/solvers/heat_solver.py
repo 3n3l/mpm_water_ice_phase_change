@@ -1,5 +1,4 @@
-from taichi.linalg import SparseMatrixBuilder, SparseSolver, SparseCG
-# from parsing import should_use_direct_solver
+from taichi.linalg import SparseMatrixBuilder, SparseCG
 
 import taichi as ti
 
@@ -8,76 +7,62 @@ import taichi as ti
 class HeatSolver:
     def __init__(self, solver) -> None:
         self.w_cells = solver.w_grid * solver.w_grid
-        self.w_grid = solver.w_grid
-        self.mpm_solver = solver
-        self.inv_dx = solver.inv_dx
-        self.dt = solver.dt
-
-        self.classification_c = solver.classification_c
-        self.temperature_c = solver.temperature_c
-        self.capacity_c = solver.capacity_c
-        self.mass_c = solver.mass_c
-
-        self.classification_x = solver.classification_x
-        self.classification_y = solver.classification_y
-        self.conductivity_x = solver.conductivity_x
-        self.conductivity_y = solver.conductivity_y
+        self.solver = solver
 
     @ti.kernel
     def fill_linear_system(self, A: ti.types.sparse_matrix_builder(), b: ti.types.ndarray()):  # pyright: ignore
-        for i, j in ti.ndrange(self.w_grid, self.w_grid):
-            idx = (i * self.w_grid) + j  # raveled index
-            b[idx] = self.temperature_c[i, j]  # right-hand side
+        for i, j in ti.ndrange(self.solver.w_grid, self.solver.w_grid):
+            idx = (i * self.solver.w_grid) + j  # raveled index
+            b[idx] = self.solver.temperature_c[i, j]  # right-hand side
 
             # We enforce Dirichlet temperature boundary conditions at CELLS that are in contact with fixed
             # temperature bodies (like a heated pan (-> boundary cells in our case) or air (-> empty cells)),
             # i.e we keep the currently recorded cell temperatures for empty (air) cells.
-            if not self.mpm_solver.is_interior(i, j):
+            if not self.solver.is_interior(i, j):
                 A[idx, idx] += 1.0
                 continue
 
             # Compute (1 / dx^2) * ((dt * dx^d) / (m_c * c_c)) [Jiang 2016, Ch. 5.8],
             # NOTE: dx^d is cancelled out by 1 / dx^2 because d == 2.
-            dt_inv_mass_capacity = self.dt[None] / (self.mass_c[i, j] * self.capacity_c[i, j])
-            inv_dx_sqrd = self.inv_dx * self.inv_dx
+            dt_inv_mass_capacity = self.solver.dt[None] / (self.solver.mass_c[i, j] * self.solver.capacity_c[i, j])
+            inv_dx_sqrd = self.solver.inv_dx * self.solver.inv_dx
             diagonal = 1.0  # to keep max_num_triplets as low as possible
 
             # We enforce homogeneous Neumann boundary conditions at FACES adjacent to cells that are corresponding
             # to insulated objects, i.e we set the conductivity to zero for faces adjacent to insulated cells
             # (or by simply just not incorporating them).
-            if not self.mpm_solver.is_insulated(i + 1, j):  # homogeneous Neumann
-                diagonal += dt_inv_mass_capacity * self.conductivity_x[i + 1, j]
-                if self.mpm_solver.is_empty(i + 1, j):  # non-homogeneous Dirichlet
-                    A[idx, idx + self.w_grid] -= dt_inv_mass_capacity * self.conductivity_x[i + 1, j]
-                    b[idx] += inv_dx_sqrd * self.conductivity_x[i + 1, j] * self.temperature_c[i + 1, j]
+            if not self.solver.is_insulated(i + 1, j):  # homogeneous Neumann
+                diagonal += dt_inv_mass_capacity * self.solver.conductivity_x[i + 1, j]
+                if self.solver.is_empty(i + 1, j):  # non-homogeneous Dirichlet
+                    A[idx, idx + self.solver.w_grid] -= dt_inv_mass_capacity * self.solver.conductivity_x[i + 1, j]
+                    b[idx] += inv_dx_sqrd * self.solver.conductivity_x[i + 1, j] * self.solver.temperature_c[i + 1, j]
 
-            if not self.mpm_solver.is_insulated(i - 1, j):  # homogeneous Neumann
-                diagonal += dt_inv_mass_capacity * self.conductivity_x[i, j]
-                if self.mpm_solver.is_empty(i - 1, j):  # non-homogeneous Dirichlet
-                    A[idx, idx - self.w_grid] -= dt_inv_mass_capacity * self.conductivity_x[i, j]
-                    b[idx] += inv_dx_sqrd * self.conductivity_x[i, j] * self.temperature_c[i - 1, j]
+            if not self.solver.is_insulated(i - 1, j):  # homogeneous Neumann
+                diagonal += dt_inv_mass_capacity * self.solver.conductivity_x[i, j]
+                if self.solver.is_empty(i - 1, j):  # non-homogeneous Dirichlet
+                    A[idx, idx - self.solver.w_grid] -= dt_inv_mass_capacity * self.solver.conductivity_x[i, j]
+                    b[idx] += inv_dx_sqrd * self.solver.conductivity_x[i, j] * self.solver.temperature_c[i - 1, j]
 
-            if not self.mpm_solver.is_insulated(i, j + 1):  # homogeneous Neumann
-                diagonal += dt_inv_mass_capacity * self.conductivity_y[i, j + 1]
-                if self.mpm_solver.is_empty(i, j + 1):  # non-homogeneous Dirichlet
-                    A[idx, idx + 1] -= dt_inv_mass_capacity * self.conductivity_y[i, j + 1]
-                    b[idx] += inv_dx_sqrd * self.conductivity_y[i, j + 1] * self.temperature_c[i, j + 1]
+            if not self.solver.is_insulated(i, j + 1):  # homogeneous Neumann
+                diagonal += dt_inv_mass_capacity * self.solver.conductivity_y[i, j + 1]
+                if self.solver.is_empty(i, j + 1):  # non-homogeneous Dirichlet
+                    A[idx, idx + 1] -= dt_inv_mass_capacity * self.solver.conductivity_y[i, j + 1]
+                    b[idx] += inv_dx_sqrd * self.solver.conductivity_y[i, j + 1] * self.solver.temperature_c[i, j + 1]
 
-            if not self.mpm_solver.is_insulated(i, j - 1):  # homogeneous Neumann
-                diagonal += dt_inv_mass_capacity * self.conductivity_y[i, j]
-                if self.mpm_solver.is_empty(i, j - 1):  # non-homogeneous Dirichlet
-                    A[idx, idx - 1] -= dt_inv_mass_capacity * self.conductivity_y[i, j]
-                    b[idx] += inv_dx_sqrd * self.conductivity_y[i, j] * self.temperature_c[i, j - 1]
+            if not self.solver.is_insulated(i, j - 1):  # homogeneous Neumann
+                diagonal += dt_inv_mass_capacity * self.solver.conductivity_y[i, j]
+                if self.solver.is_empty(i, j - 1):  # non-homogeneous Dirichlet
+                    A[idx, idx - 1] -= dt_inv_mass_capacity * self.solver.conductivity_y[i, j]
+                    b[idx] += inv_dx_sqrd * self.solver.conductivity_y[i, j] * self.solver.temperature_c[i, j - 1]
 
             A[idx, idx] += diagonal  # add value from variable, to keep max_num_triplets as low as possible
 
     @ti.kernel
     def fill_temperature_field(self, T: ti.types.ndarray()):  # pyright: ignore
-        for i, j in ti.ndrange(self.w_grid, self.w_grid):
-            self.temperature_c[i, j] = T[(i * self.w_grid) + j]
+        for i, j in ti.ndrange(self.solver.w_grid, self.solver.w_grid):
+            self.solver.temperature_c[i, j] = T[(i * self.solver.w_grid) + j]
 
     def solve(self):
-        # TODO: max_num_triplets could be optimized to N * 5?
         A = SparseMatrixBuilder(
             max_num_triplets=(5 * self.w_cells),
             num_rows=self.w_cells,
@@ -88,19 +73,7 @@ class HeatSolver:
         self.fill_linear_system(A, b)
 
         # Solve the linear system.
-        # TODO: create a base parsing file, move this there
-        should_use_direct_solver = False
-        if should_use_direct_solver:
-            solver = SparseSolver(dtype=ti.f32, solver_type="LLT")
-            solver.compute(A.build())
-            T = solver.solve(b)
-            self.fill_temperature_field(T)
-            # FIXME: remove this debugging statements or move to test file
-            # solver_succeeded, temperature = solver.info(), T.to_numpy()
-            # assert solver_succeeded, "SOLVER DID NOT FIND A SOLUTION!"
-            # assert not np.any(np.isnan(temperature)), "NAN VALUE IN NEW TEMPERATURE ARRAY!"
-        else:
-            solver = SparseCG(A.build(), b, atol=1e-6, max_iter=500)
-            T, _ = solver.solve()
+        solver = SparseCG(A.build(), b, atol=1e-5, max_iter=500)
+        T, _ = solver.solve()
 
         self.fill_temperature_field(T)

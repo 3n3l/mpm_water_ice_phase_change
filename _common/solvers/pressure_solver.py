@@ -1,29 +1,21 @@
-from taichi.linalg import SparseMatrixBuilder, SparseSolver, SparseCG
 from _common.solvers.staggered_solver import StaggeredSolver
-
-# from parsing import should_use_direct_solver
+from taichi.linalg import SparseMatrixBuilder, SparseCG
 
 import taichi as ti
-import numpy as np
-
-GRAVITY = -9.81
 
 
 @ti.data_oriented
 class PressureSolver:
     def __init__(self, solver: StaggeredSolver) -> None:
         self.w_cells = solver.w_grid * solver.w_grid
-        self.inv_dx = solver.inv_dx
-        self.w_grid = solver.w_grid
         self.solver = solver
-        self.dt = solver.dt
 
     @ti.kernel
     def fill_linear_system(self, A: ti.types.sparse_matrix_builder(), b: ti.types.ndarray()):  # pyright: ignore
-        dt_inv_dx_sqrd = self.dt[None] * self.inv_dx * self.inv_dx
-        for i, j in ti.ndrange(self.w_grid, self.w_grid):
+        dt_inv_dx_sqrd = self.solver.dt[None] * self.solver.inv_dx * self.solver.inv_dx
+        for i, j in ti.ndrange(self.solver.w_grid, self.solver.w_grid):
             diagonal = 0.0  # to keep max_num_triplets as low as possible
-            idx = (i * self.w_grid) + j  # raveled index
+            idx = (i * self.solver.w_grid) + j  # raveled index
 
             # We enforce homogeneous Dirichlet pressure boundary conditions at CELLS that have been marked as empty.
             if not self.solver.is_interior(i, j):
@@ -40,28 +32,28 @@ class PressureSolver:
             # We enforce homogeneous Neumann boundary conditions at FACES adjacent to cells that have been marked as colliding.
             if not self.solver.is_colliding(i + 1, j):  # homogeneous Neumann
                 inv_rho = self.solver.volume_x[i + 1, j] / self.solver.mass_x[i + 1, j]
-                b[idx] += self.inv_dx * self.solver.velocity_x[i + 1, j]
+                b[idx] += self.solver.inv_dx * self.solver.velocity_x[i + 1, j]
                 diagonal += dt_inv_dx_sqrd * inv_rho
                 if not self.solver.is_empty(i + 1, j):  # homogeneous Dirichlet
-                    A[idx, idx + self.w_grid] -= dt_inv_dx_sqrd * inv_rho
+                    A[idx, idx + self.solver.w_grid] -= dt_inv_dx_sqrd * inv_rho
 
             if not self.solver.is_colliding(i - 1, j):  # homogeneous Neumann
                 inv_rho = self.solver.volume_x[i, j] / self.solver.mass_x[i, j]
-                b[idx] -= self.inv_dx * self.solver.velocity_x[i, j]
+                b[idx] -= self.solver.inv_dx * self.solver.velocity_x[i, j]
                 diagonal += dt_inv_dx_sqrd * inv_rho
                 if not self.solver.is_empty(i - 1, j):  # homogeneous Dirichlet
-                    A[idx, idx - self.w_grid] -= dt_inv_dx_sqrd * inv_rho
+                    A[idx, idx - self.solver.w_grid] -= dt_inv_dx_sqrd * inv_rho
 
             if not self.solver.is_colliding(i, j + 1):  # homogeneous Neumann
                 inv_rho = self.solver.volume_y[i, j + 1] / self.solver.mass_y[i, j + 1]
-                b[idx] += self.inv_dx * self.solver.velocity_y[i, j + 1]
+                b[idx] += self.solver.inv_dx * self.solver.velocity_y[i, j + 1]
                 diagonal += dt_inv_dx_sqrd * inv_rho
                 if not self.solver.is_empty(i, j + 1):  # homogeneous Dirichlet
                     A[idx, idx + 1] -= dt_inv_dx_sqrd * inv_rho
 
             if not self.solver.is_colliding(i, j - 1):  # homogeneous Neumann
                 inv_rho = self.solver.volume_y[i, j] / self.solver.mass_y[i, j]
-                b[idx] -= self.inv_dx * self.solver.velocity_y[i, j]
+                b[idx] -= self.solver.inv_dx * self.solver.velocity_y[i, j]
                 diagonal += dt_inv_dx_sqrd * inv_rho
                 if not self.solver.is_empty(i, j - 1):  # homogeneous Dirichlet
                     A[idx, idx - 1] -= dt_inv_dx_sqrd * inv_rho
@@ -70,12 +62,12 @@ class PressureSolver:
 
     @ti.kernel
     def apply_pressure(self, pressure: ti.types.ndarray()):  # pyright: ignore
-        coefficient = self.dt[None] * self.inv_dx
-        for i, j in ti.ndrange(self.w_grid, self.w_grid):
-            idx = i * self.w_grid + j
+        coefficient = self.solver.dt[None] * self.solver.inv_dx
+        for i, j in ti.ndrange(self.solver.w_grid, self.solver.w_grid):
+            idx = i * self.solver.w_grid + j
             if self.solver.is_interior(i - 1, j) or self.solver.is_interior(i, j):
                 if not (self.solver.is_colliding(i - 1, j) or self.solver.is_colliding(i, j)):
-                    pressure_gradient = pressure[idx] - pressure[idx - self.w_grid]
+                    pressure_gradient = pressure[idx] - pressure[idx - self.solver.w_grid]
                     inv_rho = self.solver.volume_x[i, j] / self.solver.mass_x[i, j]
                     self.solver.velocity_x[i, j] += inv_rho * coefficient * pressure_gradient
                 else:
@@ -99,19 +91,8 @@ class PressureSolver:
         self.fill_linear_system(A, b)
 
         # Solve the linear system:
-        # TODO: create a base parsing file, move this there
-        should_use_direct_solver = False
-        if should_use_direct_solver:
-            solver = SparseSolver(dtype=ti.f32, solver_type="LLT")
-            solver.compute(A.build())
-            p = solver.solve(b)
-            # FIXME: remove this debugging statements or move to test file
-            solver_succeeded, pressure = solver.info(), p.to_numpy()
-            assert solver_succeeded, "SOLVER DID NOT FIND A SOLUTION!"
-            assert not np.any(np.isnan(pressure)), "NAN VALUE IN PRESSURE ARRAY!"
-        else:
-            solver = SparseCG(A.build(), b, atol=1e-5, max_iter=500)
-            p, _ = solver.solve()
+        solver = SparseCG(A.build(), b, atol=1e-5, max_iter=500)
+        p, _ = solver.solve()
 
         # Correct pressure:
         self.apply_pressure(p)
