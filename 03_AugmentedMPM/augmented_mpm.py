@@ -478,11 +478,11 @@ class AugmentedMPM(StaggeredSolver):
                     self.latent_heat_p[p] = Ice.LatentHeat
                     self.temperature_p[p] = 0.0
                     self.capacity_p[p] = Ice.Capacity
-                    self.lambda_p[p] = self.lambda_p[p]
+                    self.lambda_p[p] = Ice.Lambda
                     self.color_p[p] = Ice.Color
                     self.phase_p[p] = Ice.Phase
                     self.mass_p[p] = self.vol_0_p * Ice.Density
-                    self.mu_p[p] = self.mu_p[p]
+                    self.mu_p[p] = Ice.Mu
                     self.FE_p[p] = ti.Matrix.identity(ti.f32, 2)
                     self.JP_p[p] = 1.0
                     self.JE_p[p] = 1.0
