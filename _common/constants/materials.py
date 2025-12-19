@@ -42,7 +42,7 @@ class Ice(Material):
     Conductivity = 2.33
     LatentHeat = 0.0
     Capacity = 2.093  # j/dC
-    Density = 400.0
+    Density = 917.0
     Lambda = (E * nu) / ((1 + nu) * (1 - 2 * nu))
     Color = ColorRGB.Ice
     Phase = 86
