@@ -36,18 +36,14 @@ class PhaseField(StaggeredSolver):
         self.ice_mass_x = ti.field(dtype=ti.f32, shape=(self.w_grid + 1, self.w_grid), offset=self.w_offset)
         self.ice_mass_y = ti.field(dtype=ti.f32, shape=(self.w_grid, self.w_grid + 1), offset=self.w_offset)
 
-        self.combined_conductivity_x = ti.field(
-            dtype=ti.f32, shape=(self.w_grid + 1, self.w_grid), offset=self.w_offset
-        )
-        self.combined_conductivity_y = ti.field(
-            dtype=ti.f32, shape=(self.w_grid, self.w_grid + 1), offset=self.w_offset
-        )
+        self.c_conductivity_x = ti.field(dtype=ti.f32, shape=(self.w_grid + 1, self.w_grid), offset=self.w_offset)
+        self.c_conductivity_y = ti.field(dtype=ti.f32, shape=(self.w_grid, self.w_grid + 1), offset=self.w_offset)
         self.c_velocity_x = ti.field(dtype=ti.f32, shape=(self.w_grid + 1, self.w_grid), offset=self.w_offset)
         self.c_velocity_y = ti.field(dtype=ti.f32, shape=(self.w_grid, self.w_grid + 1), offset=self.w_offset)
-        self.combined_volume_x = ti.field(dtype=ti.f32, shape=(self.w_grid + 1, self.w_grid), offset=self.w_offset)
-        self.combined_volume_y = ti.field(dtype=ti.f32, shape=(self.w_grid, self.w_grid + 1), offset=self.w_offset)
-        self.combined_mass_x = ti.field(dtype=ti.f32, shape=(self.w_grid + 1, self.w_grid), offset=self.w_offset)
-        self.combined_mass_y = ti.field(dtype=ti.f32, shape=(self.w_grid, self.w_grid + 1), offset=self.w_offset)
+        self.c_volume_y = ti.field(dtype=ti.f32, shape=(self.w_grid + 1, self.w_grid), offset=self.w_offset)
+        self.c_volume_x = ti.field(dtype=ti.f32, shape=(self.w_grid, self.w_grid + 1), offset=self.w_offset)
+        self.c_mass_x = ti.field(dtype=ti.f32, shape=(self.w_grid + 1, self.w_grid), offset=self.w_offset)
+        self.c_mass_y = ti.field(dtype=ti.f32, shape=(self.w_grid, self.w_grid + 1), offset=self.w_offset)
 
         # Properties on MAC-cells.
         # self.inv_lambda_c = ti.field(dtype=ti.f64, shape=(self.w_grid, self.w_grid), offset=self.w_offset)
@@ -148,6 +144,8 @@ class PhaseField(StaggeredSolver):
             # We ignore uninitialized particles:
             if self.state_p[p] == State.Hidden:
                 continue
+            if self.phase_p[p] != Water.Phase:
+                continue
 
             # Lower left corner of the interpolation grid:
             base_x = ti.floor((self.position_p[p] * self.inv_dx - ti.Vector([0.5, 1.0])), dtype=ti.i32)
@@ -194,12 +192,14 @@ class PhaseField(StaggeredSolver):
     @ti.kernel
     def ice_particle_to_grid(self):
         # NOTE: particles are sorted: [water | ice | uninitialized]
-        # TODO: water_divier + 1?
+        # TODO: water_divider + 1?
         # for p in ti.ndrange(self.water_divider[None], self.ice_divider[None]):
         for p in ti.ndrange(self.n_particles[None]):
             # TODO: this check should not be needed anymore after sorting:
             # We ignore uninitialized particles:
             if self.state_p[p] == State.Hidden:
+                continue
+            if self.phase_p[p] != Ice.Phase:
                 continue
 
             # Update deformation gradient:
@@ -320,8 +320,8 @@ class PhaseField(StaggeredSolver):
                 self.temperature_c[i, j] /= mass_c
                 # self.inv_lambda_c[i, j] /= mass_c
                 self.capacity_c[i, j] /= mass_c
-                self.JE_c[i, j] /= mass_c
-                self.JP_c[i, j] /= mass_c
+                # self.JE_c[i, j] /= mass_c
+                # self.JP_c[i, j] /= mass_c
 
     @ti.kernel
     def classify_cells(self):
@@ -334,6 +334,8 @@ class PhaseField(StaggeredSolver):
         for p in self.velocity_p:
             # We ignore uninitialized particles:
             if self.state_p[p] == State.Hidden:
+                continue
+            if self.phase_p[p] != Water.Phase:
                 continue
 
             # Find the nearest cell and set it to interior:
@@ -448,13 +450,13 @@ class PhaseField(StaggeredSolver):
     @override
     def substep(self):
         self.reset_grids()
-        # self.water_particle_to_grid()
+        self.water_particle_to_grid()
         self.ice_particle_to_grid()
         self.momentum_to_velocity()
         self.classify_cells()
         self.compute_volumes()
-        # self.pressure_solver.solve()
-        # self.heat_solver.solve()
+        self.pressure_solver.solve()
+        self.heat_solver.solve()
         self.couple_materials()
         self.grid_to_particle()
-        # TODO: sort particles here
+        # TODO: sort particles here instead of checking in each kernel
