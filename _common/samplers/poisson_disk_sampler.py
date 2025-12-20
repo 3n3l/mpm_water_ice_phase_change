@@ -115,7 +115,7 @@ class PoissonDiskSampler(ABC):
         # Find a good initial point for this sample run:
         initial_point = self._generate_initial_point(geometry)
         self.solver.add_particle(self._tail[None], initial_point, geometry)
-        self.solver.n_particles[None] += 1
+        self.solver.n_particles[None] += 2
         self._head[None] += 1
         self._tail[None] += 1
 
