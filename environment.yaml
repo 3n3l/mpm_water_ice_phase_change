@@ -1,0 +1,10 @@
+name: 2WS_WIPC
+channels:
+  - defaults
+dependencies:
+  - python=3.13
+  - numpy
+  - matplotlib
+  - pip
+  - pip:
+    - taichi==1.7.4
