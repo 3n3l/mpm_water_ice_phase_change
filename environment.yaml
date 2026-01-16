@@ -1,4 +1,4 @@
-name: 2WS_WIPC
+name: Taichi
 channels:
   - defaults
 dependencies:
