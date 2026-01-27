@@ -8,7 +8,7 @@ from _common.parsers.parsing import parser, add_configuration
 from _common.simulation import GGUI_Simulation, GUI_Simulation
 from _common.samplers import PoissonDiskSampler
 
-from phase_field_mpm import PhaseField
+from augmented_mpm import AugmentedMPM
 
 import taichi as ti
 
@@ -28,14 +28,14 @@ def main():
         ti.init(arch=ti.cuda, debug=arguments.debug, verbose=arguments.verbose)
 
     initial_configuration = arguments.configuration % len(configurations)
-    name = "Phase-field MPM, Water and Ice with Phase-change"
-    prefix = "PF_MPM"
+    name = "Augmented MPM"
+    prefix = "A_MPM"
 
     max_particles, n_grid = 300_000, 128
     radius = 1 / (6 * float(n_grid))  # 6 particles per cell
     vol_0 = math.pi * (radius**2)
 
-    solver = PhaseField(max_particles=max_particles, n_grid=n_grid, vol_0=vol_0)
+    solver = AugmentedMPM(max_particles=max_particles, n_grid=n_grid, vol_0=vol_0)
     poisson_disk_sampler = PoissonDiskSampler(solver=solver, r=radius, k=30)
     if arguments.gui.lower() == "ggui":
         simulation = GGUI_Simulation(

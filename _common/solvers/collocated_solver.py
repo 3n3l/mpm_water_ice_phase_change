@@ -1,6 +1,6 @@
 from _common.constants import Classification, State
 from _common.configurations import Configuration
-from abc import ABC, abstractmethod
+from abc import ABC
 
 import taichi as ti
 
@@ -117,10 +117,8 @@ class CollocatedSolver(ABC):
         self.position_p.fill([42, 42])
         self.n_particles[None] = 0
 
-    @abstractmethod
     def substep(self):
         pass
 
-    @abstractmethod
     def add_particle(self, index: ti.i32, position: ti.template(), geometry: ti.template()):  # pyright: ignore
         pass
