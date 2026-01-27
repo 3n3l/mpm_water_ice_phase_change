@@ -40,31 +40,6 @@ class MPM(StaggeredSolver):
         # Set the initial boundary:
         self.initialize_boundary()
 
-    @ti.func
-    @override
-    def add_particle(self, index: ti.i32, position: ti.template(), geometry: ti.template()):  # pyright: ignore
-        pass
-        # self.change_particle_material(index, geometry.material)
-        # self.velocity_p[index] = geometry.velocity
-        # self.position_p[index] = position
-        # self.state_p[index] = State.Active
-        # self.C_p[index] = ti.Matrix.zero(ti.f32, 2, 2)
-
-    @ti.func
-    def change_particle_material(self, p: ti.i32, material: ti.template()):  # pyright: ignore
-        pass
-        # self.theta_c_p[p] = material.Theta_c
-        # self.theta_s_p[p] = material.Theta_s
-        # self.lambda_p[p] = material.Lambda
-        # self.color_p[p] = material.Color
-        # self.phase_p[p] = material.Phase
-        # self.mass_p[p] = self.vol_0_p * material.Density
-        # self.zeta_p[p] = material.Zeta
-        # self.mu_p[p] = material.Mu
-        # self.FE_p[p] = ti.Matrix.identity(ti.f32, 2)
-        # self.JP_p[p] = 1.0
-        # self.JE_p[p] = 1.0
-
     @ti.kernel
     def reset_grids(self):
         for i, j in self.mass_x:

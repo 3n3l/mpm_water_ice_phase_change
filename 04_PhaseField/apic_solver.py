@@ -32,23 +32,6 @@ class APIC(StaggeredSolver):
         # Set the initial boundary:
         self.initialize_boundary()
 
-    @ti.func
-    @override
-    def add_particle(self, index: ti.i32, position: ti.template(), geometry: ti.template()):  # pyright: ignore
-        pass
-        # self.change_particle_material(index, geometry.material)
-        # self.velocity_p[index] = geometry.velocity
-        # self.position_p[index] = position
-        # self.state_p[index] = State.Active
-
-    @ti.func
-    def change_particle_material(self, p: ti.i32, material: ti.template()):  # pyright: ignore
-        pass
-        # self.mass_p[p] = self.vol_0_p * material.Density
-        # # TODO: these are not needed anymore
-        # self.color_p[p] = material.Color
-        # self.phase_p[p] = material.Phase
-
     @ti.kernel
     def reset_grids(self):
         for i, j in self.mass_x:
