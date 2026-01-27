@@ -8,8 +8,7 @@ from _common.parsers.parsing import parser, add_configuration
 from _common.simulation import GGUI_Simulation, GUI_Simulation
 from _common.samplers import PoissonDiskSampler
 
-# from phase_field_mpm import PhaseField
-from coupled import CoupledSolver
+from coupled_solver import CoupledSolver
 
 import taichi as ti
 
@@ -29,8 +28,8 @@ def main():
         ti.init(arch=ti.cuda, debug=arguments.debug, verbose=arguments.verbose)
 
     initial_configuration = arguments.configuration % len(configurations)
-    name = "Phase-field MPM, Water and Ice with Phase-change"
-    prefix = "PF_MPM"
+    name = "Coupled APIC & MPM"
+    prefix = "CAM_MPM"
 
     max_particles, n_grid = 300_000, 128
     radius = 1 / (6 * float(n_grid))  # 6 particles per cell

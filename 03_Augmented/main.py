@@ -28,7 +28,7 @@ def main():
         ti.init(arch=ti.cuda, debug=arguments.debug, verbose=arguments.verbose)
 
     initial_configuration = arguments.configuration % len(configurations)
-    name = "Augmented MPM, Water and Ice with Phase Change"
+    name = "Augmented MPM"
     prefix = "A_MPM"
 
     max_particles, n_grid = 300_000, 128
