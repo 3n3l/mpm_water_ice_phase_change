@@ -1,4 +1,4 @@
-from _common.constants import State, Water, Ice, Simulation
+from _common.constants import Classification, State, Water, Ice, Simulation
 from _common.solvers import HeatSolver, StaggeredSolver
 from apic_solver import APIC
 from mpm_solver import MPM
@@ -40,18 +40,9 @@ class CoupledSolver(StaggeredSolver):
         # self.water_divider = ti.field(dtype=ti.f32, shape=())  # divides water and ice particles
         # self.ice_divider = ti.field(dtype=ti.f32, shape=())  # divides water and ice particles
 
-        self.apic_solver = APIC(self)
-        self.mpm_solver = MPM(self)
-
-        # # TODO: both could have their own n_particles field,
-        # #       but then we need to translate between mpm, apic
-        # #       fields and coupled fields
-        # self.mpm_solver.n_particles = self.n_particles
-        # self.apic_solver.n_particles = self.n_particles
-
-        # # Poisson solvers for pressure and heat.
-        # # self.pressure_solver = PressureSolver(self)
-        # self.heat_solver = HeatSolver(self)
+        self.apic = APIC(self)
+        self.mpm = MPM(self)
+        self.heat_solver = HeatSolver(self)
 
         # Set the initial boundary:
         self.initialize_boundary()
@@ -88,13 +79,11 @@ class CoupledSolver(StaggeredSolver):
         for i, j in self.mass_x:
             self.conductivity_x[i, j] = 0
             self.velocity_x[i, j] = 0
-            self.volume_x[i, j] = 0
             self.mass_x[i, j] = 0
 
         for i, j in self.mass_y:
             self.conductivity_y[i, j] = 0
             self.velocity_y[i, j] = 0
-            self.volume_y[i, j] = 0
             self.mass_y[i, j] = 0
 
         for i, j in self.mass_c:
@@ -105,21 +94,65 @@ class CoupledSolver(StaggeredSolver):
     @ti.kernel
     def couple_materials(self):
         for i, j in self.velocity_x:
-            combined_mass = self.apic_solver.mass_x[i, j] + self.mpm_solver.mass_x[i, j]
-            if combined_mass > 0:
-                combined_velocity = self.apic_solver.mass_x[i, j] * self.apic_solver.velocity_x[i, j]
-                combined_velocity += self.mpm_solver.mass_x[i, j] * self.mpm_solver.velocity_x[i, j]
-                self.velocity_x[i, j] = combined_velocity / combined_mass
+            self.mass_x[i, j] = self.apic.mass_x[i, j] + self.mpm.mass_x[i, j]
+            if (mass_x := self.mass_x[i, j]) > 0:
+                velocity_x = self.apic.mass_x[i, j] * self.apic.velocity_x[i, j]
+                velocity_x += self.mpm.mass_x[i, j] * self.mpm.velocity_x[i, j]
+                self.velocity_x[i, j] = velocity_x / mass_x
+
+                # TODO: mass not needed because not in m2v?
+                coupled_conductivity = self.apic.conductivity_x[i, j] + self.mpm.conductivity_x[i, j]
+                self.conductivity_x[i, j] = coupled_conductivity / mass_x
+
                 # if (i >= self.n_grid and self.c_velocity_x[i, j] > 0) or (i <= 0 and self.c_velocity_x[i, j] < 0):
                 #     self.c_velocity_x[i, j] = 0
+
         for i, j in self.velocity_y:
-            combined_mass = self.apic_solver.mass_y[i, j] + self.mpm_solver.mass_y[i, j]
-            if combined_mass > 0:
-                combined_velocity = self.apic_solver.mass_y[i, j] * self.apic_solver.velocity_y[i, j]
-                combined_velocity += self.mpm_solver.mass_y[i, j] * self.mpm_solver.velocity_y[i, j]
-                self.velocity_y[i, j] = combined_velocity / combined_mass
+            self.mass_y[i, j] = self.apic.mass_y[i, j] + self.mpm.mass_y[i, j]
+            if (coupled_mass_y := self.mass_y[i, j]) > 0:
+                velocity_y = self.apic.mass_y[i, j] * self.apic.velocity_y[i, j]
+                velocity_y += self.mpm.mass_y[i, j] * self.mpm.velocity_y[i, j]
+                self.velocity_y[i, j] = velocity_y / coupled_mass_y
+
+                # TODO: mass not needed because not in m2v?
+                coupled_conductivity = self.apic.conductivity_y[i, j] + self.mpm.conductivity_y[i, j]
+                self.conductivity_y[i, j] = coupled_conductivity / coupled_mass_y
+
                 # if (j >= self.n_grid and self.c_velocity_y[i, j] > 0) or (j <= 0 and self.c_velocity_y[i, j] < 0):
                 #     self.c_velocity_y[i, j] = 0
+
+        for i, j in self.mass_c:
+            self.mass_c[i, j] = self.apic.mass_c[i, j] + self.mpm.mass_c[i, j]
+            if (mass_c := self.mass_c[i, j]) > 0:
+                # TODO: mass not needed because not in m2v?
+                temperature = self.apic.temperature_c[i, j] + self.mpm.temperature_c[i, j]
+                self.temperature_c[i, j] = temperature / mass_c
+                capacity = self.apic.capacity_c[i, j] + self.mpm.capacity_c[i, j]
+                self.capacity_c[i, j] = capacity / mass_c
+
+    @ti.kernel
+    def classify_cells(self):
+        for i, j in self.classification_c:
+            if self.is_colliding(i, j):
+                # The boundary temperature is recorded for boundary (colliding) cells:
+                self.temperature_c[i, j] = self.boundary_temperature[None]
+                continue
+
+            # A cell is interior if the cell and all of its surrounding faces have mass.
+            cell_is_interior = self.mass_c[i, j] > 0
+            cell_is_interior &= self.mass_x[i, j] > 0 and self.mass_x[i + 1, j] > 0
+            cell_is_interior &= self.mass_y[i, j] > 0 and self.mass_y[i, j + 1] > 0
+
+            if cell_is_interior:
+                self.classification_c[i, j] = Classification.Interior
+                continue
+
+            # All remaining cells are empty.
+            self.classification_c[i, j] = Classification.Empty
+
+            # If the free surface is being enforced as a Dirichlet temperature condition,
+            # the ambient air temperature is recorded for empty cells.
+            self.temperature_c[i, j] = self.ambient_temperature[None]
 
     @ti.kernel
     def grid_to_particle(self):
@@ -195,27 +228,14 @@ class CoupledSolver(StaggeredSolver):
                 # Freely change temperature according to heat equation, but clamp temperature for realism.
                 self.temperature_p[p] = tm.clamp(temperature, Simulation.MinTemperature, Simulation.MaxTemperature)
 
-            # # TODO: do something more clever to advance the solvers
-            # if self.phase_p[p] == Water.Phase:
-            #     self.apic_solver.position_p[p] = self.position_p[p]
-            #     self.apic_solver.velocity_p[p] = velocity
-            #     self.apic_solver.cx_p[p] = c_x
-            #     self.apic_solver.cy_p[p] = c_y
-            #     # self.color_p[p] = self.apic_solver.color_p[p]
-            # else:
-            #     self.mpm_solver.C_p[p] = ti.Matrix([[c_x[0], c_y[0]], [c_x[1], c_y[1]]])  # pyright: ignore
-            #     self.mpm_solver.position_p[p] = self.position_p[p]
-            #     self.mpm_solver.velocity_p[p] = velocity
-            #     # self.color_p[p] = self.mpm_solver.color_p[p]
-
     @override
     def substep(self):
         self.reset_grids()
-        self.apic_solver.substep()
-        self.mpm_solver.substep()
+        self.apic.substep()
+        self.mpm.substep()
         self.couple_materials()
-        # self.classify_cells()
-        # self.heat_solver.solve()
+        self.classify_cells()
+        self.heat_solver.solve()
         self.grid_to_particle()
         # TODO: there is no G2P in the solvers right now
         # TODO: sort particles here instead of checking in each kernel

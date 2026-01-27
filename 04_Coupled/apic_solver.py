@@ -13,7 +13,16 @@ class APIC(StaggeredSolver):
         # TODO: maybe make all of these fields optional in the base classes and then just pass them from here?
         #       this might not only be more aesthetic, but also more efficient
 
+        # Properties on MAC-faces.
+        self.conductivity_x = ti.field(dtype=ti.f32, shape=(self.w_grid + 1, self.w_grid), offset=self.w_offset)
+        self.conductivity_y = ti.field(dtype=ti.f32, shape=(self.w_grid, self.w_grid + 1), offset=self.w_offset)
+
+        # Properties on MAC-cells.
+        self.capacity_c = ti.field(dtype=ti.f32, shape=(self.w_grid, self.w_grid), offset=self.w_offset)
+
         # Properties on particles.
+        self.conductivity_p = coupled_solver.conductivity_p
+        self.capacity_p = coupled_solver.capacity_p
         self.position_p = coupled_solver.position_p
         self.velocity_p = coupled_solver.velocity_p
         self.phase_p = coupled_solver.phase_p
@@ -35,16 +44,20 @@ class APIC(StaggeredSolver):
     @ti.kernel
     def reset_grids(self):
         for i, j in self.mass_x:
+            self.conductivity_x[i, j] = 0
             self.velocity_x[i, j] = 0
             self.volume_x[i, j] = 0
             self.mass_x[i, j] = 0
 
         for i, j in self.mass_y:
+            self.conductivity_y[i, j] = 0
             self.velocity_y[i, j] = 0
             self.volume_y[i, j] = 0
             self.mass_y[i, j] = 0
 
         for i, j in self.mass_c:
+            self.temperature_c[i, j] = 0
+            self.capacity_c[i, j] = 0
             self.mass_c[i, j] = 0
 
     @ti.kernel
@@ -84,9 +97,13 @@ class APIC(StaggeredSolver):
                 dpos_y = ti.cast(offset - dist_y, ti.f32) * self.dx
 
                 # Rasterize to cell centers:
+                self.temperature_c[base_c + offset] += weight_c * self.mass_p[p] * self.temperature_p[p]
+                self.capacity_c[base_c + offset] += weight_c * self.mass_p[p] * self.capacity_p[p]
                 self.mass_c[base_c + offset] += weight_c * self.mass_p[p]
 
                 # Rasterize to cell faces:
+                self.conductivity_x[base_x + offset] += weight_x * self.mass_p[p] * self.conductivity_p[p]
+                self.conductivity_y[base_y + offset] += weight_y * self.mass_p[p] * self.conductivity_p[p]
                 self.velocity_x[base_x + offset] += weight_x * (velocity_x + (self.cx_p[p] @ dpos_x))
                 self.velocity_y[base_y + offset] += weight_y * (velocity_y + (self.cy_p[p] @ dpos_y))
                 self.mass_x[base_x + offset] += weight_x

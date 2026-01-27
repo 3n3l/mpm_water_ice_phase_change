@@ -10,11 +10,18 @@ class MPM(StaggeredSolver):
     def __init__(self, coupled_solver):
         super().__init__(coupled_solver.max_particles, coupled_solver.n_grid, coupled_solver.vol_0_p)
 
+        # Properties on MAC-faces.
+        self.conductivity_x = ti.field(dtype=ti.f32, shape=(self.w_grid + 1, self.w_grid), offset=self.w_offset)
+        self.conductivity_y = ti.field(dtype=ti.f32, shape=(self.w_grid, self.w_grid + 1), offset=self.w_offset)
+
         # Properties on MAC-cells.
+        self.capacity_c = ti.field(dtype=ti.f32, shape=(self.w_grid, self.w_grid), offset=self.w_offset)
         self.JE_c = ti.field(dtype=ti.f32, shape=(self.w_grid, self.w_grid), offset=self.w_offset)
         self.JP_c = ti.field(dtype=ti.f32, shape=(self.w_grid, self.w_grid), offset=self.w_offset)
 
         # Properties on particles.
+        self.conductivity_p = coupled_solver.conductivity_p
+        self.capacity_p = coupled_solver.capacity_p
         self.position_p = coupled_solver.position_p
         self.velocity_p = coupled_solver.velocity_p
         self.phase_p = coupled_solver.phase_p
@@ -43,16 +50,18 @@ class MPM(StaggeredSolver):
     @ti.kernel
     def reset_grids(self):
         for i, j in self.mass_x:
+            self.conductivity_x[i, j] = 0
             self.velocity_x[i, j] = 0
-            self.volume_x[i, j] = 0
             self.mass_x[i, j] = 0
 
         for i, j in self.mass_y:
+            self.conductivity_y[i, j] = 0
             self.velocity_y[i, j] = 0
-            self.volume_y[i, j] = 0
             self.mass_y[i, j] = 0
 
         for i, j in self.mass_c:
+            self.temperature_c[i, j] = 0
+            self.capacity_c[i, j] = 0
             self.mass_c[i, j] = 0
             self.JE_c[i, j] = 0
             self.JP_c[i, j] = 0
@@ -136,14 +145,15 @@ class MPM(StaggeredSolver):
                 mass = self.mass_p[p]
 
                 # Rasterize to cell centers:
-                self.temperature_c[base_c + offset] += weight_c * mass * self.temperature_p[p]
-                # self.inv_lambda_c[base_c + offset] += weight_c * (mass / la)
-                # self.capacity_c[base_c + offset] += weight_c * mass * self.capacity_p[p]
-                # self.mass_c[base_c + offset] += weight_c * self.mass_p[p]
+                self.temperature_c[base_c + offset] += weight_c * self.mass_p[p] * self.temperature_p[p]
+                self.capacity_c[base_c + offset] += weight_c * self.mass_p[p] * self.capacity_p[p]
+                self.mass_c[base_c + offset] += weight_c * self.mass_p[p]
                 self.JE_c[base_c + offset] += weight_c * mass * self.JE_p[p]
                 self.JP_c[base_c + offset] += weight_c * mass * self.JP_p[p]
 
                 # Rasterize to cell faces:
+                self.conductivity_x[base_x + offset] += weight_x * self.mass_p[p] * self.conductivity_p[p]
+                self.conductivity_y[base_y + offset] += weight_y * self.mass_p[p] * self.conductivity_p[p]
                 self.velocity_x[base_x + offset] += weight_x * (mass * velocity_x + affine_x @ dpos_x)
                 self.velocity_y[base_y + offset] += weight_y * (mass * velocity_y + affine_y @ dpos_y)
                 self.mass_x[base_x + offset] += weight_x * mass
@@ -187,25 +197,6 @@ class MPM(StaggeredSolver):
             i, j = ti.floor(self.position_p[p] * self.inv_dx, dtype=ti.i32)  # pyright: ignore
             if not self.is_colliding(i, j):  # pyright: ignore
                 self.classification_c[i, j] = Classification.Interior
-
-    @ti.kernel
-    def couple_materials(self):
-        for i, j in self.velocity_x:
-            combined_mass = self.mass_x[i, j] + self.mass_x[i, j]
-            if combined_mass > 0:
-                combined_velocity = self.mass_x[i, j] * self.velocity_x[i, j]
-                combined_velocity += self.mass_x[i, j] * self.velocity_x[i, j]
-                self.velocity_x[i, j] = combined_velocity / combined_mass
-                # if (i >= self.n_grid and self.c_velocity_x[i, j] > 0) or (i <= 0 and self.c_velocity_x[i, j] < 0):
-                #     self.c_velocity_x[i, j] = 0
-        for i, j in self.velocity_y:
-            combined_mass = self.mass_y[i, j] + self.mass_y[i, j]
-            if combined_mass > 0:
-                combined_velocity = self.mass_y[i, j] * self.velocity_y[i, j]
-                combined_velocity += self.mass_y[i, j] * self.velocity_y[i, j]
-                self.velocity_y[i, j] = combined_velocity / combined_mass
-                # if (j >= self.n_grid and self.c_velocity_y[i, j] > 0) or (j <= 0 and self.c_velocity_y[i, j] < 0):
-                #     self.c_velocity_y[i, j] = 0
 
     @override
     def substep(self):
