@@ -1,5 +1,5 @@
 from _common.configurations import Circle, Rectangle, Configuration
-from _common.constants import Ice, Water
+from _common.constants import Ice, Water, Snow
 
 mixed_presets = [
     Configuration(
@@ -183,43 +183,57 @@ mixed_presets = [
         ],
     ),
     Configuration(
-        dt=1e-4,
-        name="Waterjet & Snowballs",
-        information="Water, Snow -> Water",
+        name="Waterjet & Smash",
+        information="Snow",
+        dt=3e-4,
+        gravity=-9.81,
+        ambient_temperature=1.0,
+        boundary_temperature=100.0,
         geometries=[
-            *[
-                Circle(
-                    material=Water,  # pyright: ignore
-                    is_continuous=True,
-                    frame_threshold=i,
-                    center=(0.5, 0.8),
-                    velocity=(0, -1),
-                    radius=0.03,
-                )
-                for i in range(1, 200)
-            ],
             *[
                 Rectangle(
                     material=Water,  # pyright: ignore
                     is_continuous=True,
                     frame_threshold=i,
                     lower_left=(0.47, 0.94),
-                    velocity=(0, -2),
+                    velocity=(0, -4),
                     size=(0.06, 0.06),
+                    temperature=500.0,
                 )
-                for i in range(3, 203)
+                for i in range(33, 225)
             ],
-            *[
-                Circle(
-                    material=Water,  # pyright: ignore
-                    is_continuous=True,
-                    frame_threshold=i,
-                    center=(0.5, 0.94),
-                    velocity=(0, -2),
-                    radius=0.03,
-                )
-                for i in range(3, 203)
-            ],
+            Circle(
+                material=Ice,  # pyright: ignore
+                center=(0.2, 0.5),
+                velocity=(4, 0),
+                frame_threshold=1,
+                temperature=-1.0,
+                radius=0.06,
+            ),
+            Circle(
+                material=Ice,  # pyright: ignore
+                center=(0.2, 0.6),
+                velocity=(4, 0),
+                frame_threshold=11,
+                temperature=-1.0,
+                radius=0.06,
+            ),
+            Circle(
+                material=Ice,  # pyright: ignore
+                center=(0.2, 0.7),
+                velocity=(4, 0),
+                frame_threshold=21,
+                temperature=-1.0,
+                radius=0.06,
+            ),
+            # Circle(
+            #     material=Ice,  # pyright: ignore
+            #     center=(0.2, 0.3),
+            #     velocity=(4, 0),
+            #     temperature=-1.0,
+            #     frame_threshold=20,
+            #     radius=0.08,
+            # ),
         ],
     ),
     Configuration(
