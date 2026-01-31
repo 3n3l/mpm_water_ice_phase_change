@@ -4,9 +4,9 @@ tests_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(tests_dir))
 
 from _common.simulation import GGUI_Simulation, GUI_Simulation
-from _common.parsers.parsing import parser, add_configuration
-from _common.presets import ice_presets, snow_presets
 from _common.samplers import PoissonDiskSampler
+from _common.parsers import parser, add_configuration
+from _common.presets import snow_presets
 
 from snow_mpm import MPM
 
@@ -14,7 +14,7 @@ import taichi as ti
 
 
 def main():
-    configurations = ice_presets + snow_presets
+    configurations = snow_presets
     add_configuration(configurations)
     arguments = parser.parse_args()
     print(parser.epilog)
