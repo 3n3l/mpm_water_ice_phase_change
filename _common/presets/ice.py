@@ -6,7 +6,7 @@ ice_presets = [
         name="Spherefall, Ice",
         information="Ice",
         gravity=-9.81,
-        dt=1e-4,
+        dt=3e-4,
         geometries=[
             Circle(
                 material=Ice,  # pyright: ignore
