@@ -1,5 +1,5 @@
 from _common.configurations import Circle, Rectangle, Configuration
-from _common.constants import Ice, Water, Snow
+from _common.constants import Ice, Water
 
 mixed_presets = [
     Configuration(
@@ -226,14 +226,6 @@ mixed_presets = [
                 temperature=-1.0,
                 radius=0.06,
             ),
-            # Circle(
-            #     material=Ice,  # pyright: ignore
-            #     center=(0.2, 0.3),
-            #     velocity=(4, 0),
-            #     temperature=-1.0,
-            #     frame_threshold=20,
-            #     radius=0.08,
-            # ),
         ],
     ),
     Configuration(
