@@ -65,42 +65,43 @@ mixed_presets = [
         ],
     ),
     Configuration(
-        dt=1e-4,
+        dt=3e-4,
         name="Pool & Ice Cubes",
         information="Water, Ice -> Water",
-        ambient_temperature=30.0,
+        ambient_temperature=1.0,
+        boundary_temperature=1000.0,
         geometries=[
             Rectangle(
                 material=Water,  # pyright: ignore
-                size=(1.0, 0.1),
+                size=(1.0, 0.3),
                 velocity=(0, 0),
                 lower_left=(0, 0),
                 frame_threshold=0,
-                temperature=50.0,
+                temperature=100.0,
             ),
             Rectangle(
                 material=Ice,  # pyright: ignore
                 size=(0.08, 0.08),
-                velocity=(0, -2),
-                lower_left=(0.25, 0.35),
-                frame_threshold=10,
-                temperature=-10.0,
+                velocity=(0, -4),
+                lower_left=(0.25, 0.75),
+                frame_threshold=1,
+                temperature=-1.0,
             ),
             Rectangle(
                 material=Ice,  # pyright: ignore
                 size=(0.08, 0.08),
-                velocity=(0, -2),
-                lower_left=(0.45, 0.15),
-                frame_threshold=70,
-                temperature=-10.0,
+                velocity=(0, -4),
+                lower_left=(0.45, 0.55),
+                frame_threshold=51,
+                temperature=-1.0,
             ),
             Rectangle(
                 material=Ice,  # pyright: ignore
                 size=(0.08, 0.08),
-                velocity=(0, -2),
-                lower_left=(0.65, 0.25),
-                frame_threshold=130,
-                temperature=-10.0,
+                velocity=(0, -4),
+                lower_left=(0.65, 0.65),
+                frame_threshold=101,
+                temperature=-1.0,
             ),
         ],
     ),
@@ -120,64 +121,64 @@ mixed_presets = [
         ],
     ),
     Configuration(
-        dt=1e-4,
+        dt=3e-4,
         name="Waterjet & Ice Cubes",
         information="Water, Ice -> Water",
-        ambient_temperature=10.0,
+        ambient_temperature=30.0,
         geometries=[
             *[
                 Circle(
                     is_continuous=True,
                     material=Water,  # pyright: ignore
                     center=(0.04, 0.96),
-                    temperature=100.0,
-                    velocity=(4, -3),
+                    temperature=500.0,
+                    velocity=(2, -1),
                     radius=0.025,
                     frame_threshold=i,
                 )
-                for i in range(1, 200)
+                for i in range(1, 150)
             ],
             Rectangle(  # BL
                 material=Ice,  # pyright: ignore
                 velocity=(0, 0),
                 lower_left=(0.495, 0.0),
                 size=(0.08, 0.08),
-                temperature=-10.0,
+                temperature=-50.0,
             ),
             Rectangle(  # BM
                 material=Ice,  # pyright: ignore
                 velocity=(0, 0),
                 lower_left=(0.585, 0.0),
                 size=(0.08, 0.08),
-                temperature=-10.0,
+                temperature=-50.0,
             ),
             Rectangle(  # BR
                 material=Ice,  # pyright: ignore
                 velocity=(0, 0),
                 lower_left=(0.675, 0.0),
                 size=(0.08, 0.08),
-                temperature=-10.0,
+                temperature=-50.0,
             ),
             Rectangle(  # ML
                 material=Ice,  # pyright: ignore
                 velocity=(0, 0),
                 lower_left=(0.5445, 0.09),
                 size=(0.08, 0.08),
-                temperature=-10.0,
+                temperature=-50.0,
             ),
             Rectangle(  # MR
                 material=Ice,  # pyright: ignore
                 velocity=(0, 0),
                 lower_left=(0.6345, 0.09),
                 size=(0.08, 0.08),
-                temperature=-10.0,
+                temperature=-50.0,
             ),
             Rectangle(  # TM
                 material=Ice,  # pyright: ignore
                 velocity=(0, 0),
                 lower_left=(0.585, 0.18),
                 size=(0.08, 0.08),
-                temperature=-10.0,
+                temperature=-50.0,
             ),
         ],
     ),
