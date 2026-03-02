@@ -151,12 +151,17 @@ class AugmentedMPM(StaggeredSolver):
                 hardening = ti.max(0.1, ti.min(50, ti.exp(self.zeta_p[p] * (1.0 - self.JP_p[p]))))
                 la, mu = la * hardening, mu * hardening
 
-            # Eliminate dilational component explicitly [Jiang 2014, Eqn. 8], then
-            # compute deviatoric Piola-Kirchhoff stress P(F) [Jiang 2016, Eqn. 52]:
+            # Eliminate dilational component explicitly [Jiang 2014, Eqn. 8]:
             FE_deviatoric = self.FE_p[p] * ti.sqrt(self.JE_p[p])
+
+            # Compute Fixed Corotated Piola-Kirchhoff stress P(F) [Jiang 2016, Eqn. 52]:
             U_deviatoric, _, V_deviatoric = ti.svd(FE_deviatoric)
             piola_kirchhoff = FE_deviatoric - (U_deviatoric @ V_deviatoric.transpose())
             piola_kirchhoff = (2 * mu * piola_kirchhoff) @ self.FE_p[p].transpose()  # pyright: ignore
+
+            # # Compute Neo-Hookean Piola-Kirchhoff stress P(F) [Jiang 2016, Eqn. 48]:
+            # piola_kirchhoff = mu * (FE_deviatoric - FE_deviatoric.inverse().transpose())  # pyright: ignore
+            # piola_kirchhoff = piola_kirchhoff @ self.FE_p[p].transpose()  # pyright: ignore
 
             # Compute D^(-1), which equals constant scaling for quadratic/cubic kernels.
             D_inv = 3 * self.inv_dx * self.inv_dx  # Cubic interpolation
@@ -261,16 +266,125 @@ class AugmentedMPM(StaggeredSolver):
             # the ambient air temperature is recorded for empty cells.
             self.temperature_c[i, j] = self.ambient_temperature[None]
 
+    @ti.func
+    def integral_cubic_kernel(self, r):  # pyright: ignore
+        intgral = 0.0
+        if r < -2.0:
+            intgral = 0
+        elif r < -1.0:
+            intgral = 1 / 24 * r**4 + 1 / 3 * r**3 + r**2 + 4 / 3 * r + 2 / 3
+        elif r < 0.0:
+            intgral = -1 / 8 * r**4 - 1 / 3 * r**3 + 2 / 3 * r + 1 / 2
+        elif r < 1.0:
+            intgral = 1 / 8 * r**4 - 1 / 3 * r**3 + 2 / 3 * r + 1 / 2
+        elif r < 2.0:
+            intgral = -1 / 24 * r**4 + 1 / 3 * r**3 - r**2 + 4 / 3 * r + 1 / 3
+        else:
+            intgral = 1.0
+        return intgral
+
     @ti.kernel
     def compute_volumes(self):
         # FIXME: this seems to be wrong, the paper has a sum over CDFs
         control_volume = 0.5 * self.dx * self.dx
-        for i, j in self.classification_c:
-            if self.classification_c[i, j] == Classification.Interior:
+        # for i, j in self.classification_c:
+        for i, j in ti.ndrange(self.w_grid + 1, self.w_grid + 1):
+            # if self.classification_c[i, j] == Classification.Interior:
+            if self.is_interior(i, j):
+            # if not self.is_colliding(i, j):
                 self.volume_x[i + 1, j] += control_volume
                 self.volume_y[i, j + 1] += control_volume
                 self.volume_x[i, j] += control_volume
                 self.volume_y[i, j] += control_volume
+
+        # directional = [
+        #     0.0416670,  # i = -2
+        #     0.4583300,  # i = -1
+        #     0.4583300,  # i = 0
+        #     0.0416670,  # i = 1
+        #     0.0,  # i = 2
+        # ]
+        # orthogonal = [
+        #     0.0026042,  # i = -2
+        #     0.1979125,  # i = -1
+        #     0.5989600,  # i = 0
+        #     0.1979125,  # i = 1
+        #     0.0026042,  # i = 2
+        # ]
+
+        # directional = [
+        #     0.0,  # i = 2
+        #     0.0416670,  # i = 1
+        #     0.4583300,  # i = 0
+        #     0.4583300,  # i = -1
+        #     0.0416670,  # i = -2
+        # ]
+        # orthogonal = [
+        #     0.0026042,  # i = 2
+        #     0.1979125,  # i = 1
+        #     0.5989600,  # i = 0
+        #     0.1979125,  # i = -1
+        #     0.0026042,  # i = -2
+        # ]
+
+        # # NOTE: 4x4 grid, strict
+        # # for i, j in self.classification_c:
+        # for i, j in ti.ndrange(self.w_grid + 1, self.w_grid + 1):
+        #     # if self.is_colliding(i,j):
+        #     # if not self.is_interior(i, j):
+        #     #     continue
+        #     for k, l in ti.static(ti.ndrange(5, 5)):
+        #         if self.is_interior(i - 2 + k, j - 2 + l):
+        #             self.volume_x[i, j] += directional[k] * orthogonal[l]
+        #             self.volume_y[i, j] += directional[l] * orthogonal[k]
+        #             # self.volume_x[i, j] += self.dx * directional[k] * orthogonal[l]
+        #             # self.volume_y[i, j] += self.dx * directional[l] * orthogonal[k]
+        #             # self.volume_x[i, j] += self.integral_cubic_kernel()
+        #             # self.volume_y[i, j] += self.dx * directional[l] * orthogonal[k]
+
+        # # NOTE: cross pattern
+        # # for i, j in ti.ndrange(self.w_grid, self.w_grid):
+        # for i, j in self.classification_c:
+        #     # FIXME: why is ti.ndrange not working here?
+        #     # for k in ti.static(ti.ndrange(-2, 3)):
+        #     # if not self.is_interior(i,j):
+        #     if self.is_colliding(i, j):
+        #         continue
+        #
+        #     for k in ti.static(range(-2, 3)):
+        #         # if self.is_interior(i + k, j):
+        #         self.volume_x[i, j] += directional[k + 2] * orthogonal[2]
+        #         # if self.is_interior(i, j + k):
+        #         self.volume_x[i, j] += directional[2] * orthogonal[k + 2]
+        #         # if self.is_interior(i, j + k):
+        #         self.volume_y[i, j] += orthogonal[2] * directional[k + 2]
+        #         # if self.is_interior(i + k, j):
+        #         self.volume_y[i, j] += orthogonal[k + 2] * directional[2]
+
+        # # NOTE: cross pattern, strict
+        # # for i, j in self.classification_c:
+        # for i, j in ti.ndrange(self.w_grid + 1, self.w_grid + 1):
+        #     # FIXME: why is ti.ndrange not working here?
+        #     # for k in ti.static(ti.ndrange(-2, 3)):
+        #     # if self.is_interior(i,j):
+        #     for k in ti.static(range(-2, 3)):
+        #         if self.is_interior(i + k, j):
+        #             self.volume_x[i, j] += directional[k + 2] * orthogonal[2]
+        #         if self.is_interior(i, j + k):
+        #             self.volume_x[i, j] += directional[2] * orthogonal[k + 2]
+        #         if self.is_interior(i, j + k):
+        #             self.volume_y[i, j] += orthogonal[2] * directional[k + 2]
+        #         if self.is_interior(i + k, j):
+        #             self.volume_y[i, j] += orthogonal[k + 2] * directional[2]
+
+        # # NOTE: 4x4 grid
+        # for i, j in self.classification_c:
+        #     if not self.is_interior(i,j):
+        #     # if self.is_colliding(i,j):
+        #         continue
+        #     for k, l in ti.static(ti.ndrange(4, 4)):
+        #         self.volume_x[i, j] += self.dx * directional[k] * orthogonal[l]
+        #         self.volume_y[i, j] += self.dx * orthogonal[k] * directional[l]
 
     @ti.kernel
     def grid_to_particle(self):
