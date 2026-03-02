@@ -32,11 +32,11 @@ def main():
     prefix = f"APIC"
 
     max_particles, n_grid = 300_000, 128
-    radius = 1 / (6 * float(n_grid))  # 6 particles per cell
+    radius = 1 / (4 * float(n_grid))  # 4 particles per cell
     vol_0 = math.pi * (radius**2)
 
     solver = APIC(max_particles=max_particles, n_grid=n_grid, vol_0=vol_0)
-    sampler = PoissonDiskSampler(solver=solver, r=radius, k=30)
+    sampler = PoissonDiskSampler(solver=solver, r=radius, k=50)
     if arguments.gui.lower() == "ggui":
         simulation = GGUI_Simulation(
             initial_configuration=initial_configuration,
