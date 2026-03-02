@@ -184,7 +184,7 @@ mixed_presets = [
     ),
     Configuration(
         name="Waterjet & Smash",
-        information="Snow",
+        information="Water, Ice -> Water",
         dt=3e-4,
         gravity=-9.81,
         ambient_temperature=1.0,
@@ -196,11 +196,23 @@ mixed_presets = [
                     is_continuous=True,
                     frame_threshold=i,
                     lower_left=(0.47, 0.94),
-                    velocity=(0, -4),
-                    size=(0.06, 0.06),
                     temperature=500.0,
+                    velocity=(0, -3),
+                    size=(0.06, 0.06),
                 )
-                for i in range(33, 225)
+                for i in range(9, 209)
+            ],
+            *[
+                Circle(
+                    material=Water,  # pyright: ignore
+                    is_continuous=True,
+                    frame_threshold=i,
+                    center=(0.5, 0.94),
+                    temperature=500.0,
+                    velocity=(0, -4),
+                    radius=0.03,
+                )
+                for i in range(9, 209)
             ],
             Circle(
                 material=Ice,  # pyright: ignore
