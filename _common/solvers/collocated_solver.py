@@ -44,9 +44,6 @@ class CollocatedSolver(ABC):
         self.phase_p = ti.field(dtype=ti.f32, shape=max_particles)
         self.mass_p = ti.field(dtype=ti.f32, shape=max_particles)
 
-        # Now we can initialize the colliding boundary (or bounding box) around the domain:
-        self.initialize_boundary()
-
     @ti.func
     def is_valid(self, i: int, j: int) -> bool:
         _is_valid = self.negative_boundary < i < self.positive_boundary
@@ -68,16 +65,6 @@ class CollocatedSolver(ABC):
     @ti.func
     def is_empty(self, i: int, j: int) -> bool:
         return self.is_valid(i, j) and self.classification_c[i, j] == Classification.Empty
-
-    @ti.kernel
-    def initialize_boundary(self):
-        for i, j in self.classification_c:
-            is_colliding = not (0 <= i < self.n_grid)
-            is_colliding |= not (0 <= j < self.n_grid)
-            if is_colliding:
-                self.classification_c[i, j] = Classification.Colliding
-            else:
-                self.classification_c[i, j] = Classification.Empty
 
     @ti.func
     def compute_cubic_kernel(self, distance: ti.template()) -> ti.template():  # pyright: ignore

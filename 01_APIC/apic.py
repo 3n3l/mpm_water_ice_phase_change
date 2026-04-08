@@ -22,6 +22,19 @@ class APIC(StaggeredSolver):
         # Poisson solvers for pressure and heat.
         self.pressure_solver = PressureSolver(self)
 
+        # Now we can initialize the colliding boundary (or bounding box) around the domain:
+        self.initialize_boundary()
+
+    @ti.kernel
+    def initialize_boundary(self):
+        for i, j in self.classification_c:
+            is_colliding = not (0 <= i < self.n_grid)
+            is_colliding |= not (0 <= j < self.n_grid)
+            if is_colliding:
+                self.classification_c[i, j] = Classification.Colliding
+            else:
+                self.classification_c[i, j] = Classification.Empty
+
     @ti.kernel
     def reset_grids(self):
         for i, j in self.velocity_x:

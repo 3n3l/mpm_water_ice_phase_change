@@ -12,17 +12,19 @@ class AugmentedMPM(StaggeredSolver):
     def __init__(self, max_particles: int, n_grid: int, vol_0: float):
         super().__init__(max_particles, n_grid, vol_0)
 
-        # Properties on MAC-faces.
+        # Properties on MAC-faces:
+        self.classification_x = ti.field(dtype=ti.i32, shape=(self.w_grid + 1, self.w_grid), offset=self.w_offset)
+        self.classification_y = ti.field(dtype=ti.i32, shape=(self.w_grid, self.w_grid + 1), offset=self.w_offset)
         self.conductivity_x = ti.field(dtype=ti.f32, shape=(self.w_grid + 1, self.w_grid), offset=self.w_offset)
         self.conductivity_y = ti.field(dtype=ti.f32, shape=(self.w_grid, self.w_grid + 1), offset=self.w_offset)
 
-        # Properties on MAC-cells.
+        # Properties on MAC-cells:
         self.inv_lambda_c = ti.field(dtype=ti.f64, shape=(self.w_grid, self.w_grid), offset=self.w_offset)
         self.capacity_c = ti.field(dtype=ti.f32, shape=(self.w_grid, self.w_grid), offset=self.w_offset)
         self.JE_c = ti.field(dtype=ti.f32, shape=(self.w_grid, self.w_grid), offset=self.w_offset)
         self.JP_c = ti.field(dtype=ti.f32, shape=(self.w_grid, self.w_grid), offset=self.w_offset)
 
-        # Properties on particles.
+        # Properties on particles:
         self.conductivity_p = ti.field(dtype=ti.f32, shape=max_particles)
         self.capacity_p = ti.field(dtype=ti.f32, shape=max_particles)
         self.theta_c_p = ti.field(dtype=ti.f32, shape=max_particles)
@@ -41,9 +43,6 @@ class AugmentedMPM(StaggeredSolver):
         # Poisson solvers for pressure and heat.
         self.pressure_solver = PressureSolver(self)
         self.heat_solver = HeatSolver(self)
-
-        # Set the initial boundary:
-        self.initialize_boundary()
 
     @ti.func
     @override
@@ -239,8 +238,41 @@ class AugmentedMPM(StaggeredSolver):
 
     @ti.kernel
     def classify_cells(self):
+        # A face is colliding if the level set computed by any collision object is negative at the face center.
+        # NOTE: collision objects are not implemented, we only care about the simulation boundary right now.
+
+        for i, j in self.classification_x:
+            # The simulation boundary is always colliding:
+            x_face_is_colliding = i >= self.n_grid or i <= 0
+            x_face_is_colliding |= j >= self.n_grid or j < 0
+            if x_face_is_colliding:
+                self.classification_x[i, j] = Classification.Colliding
+                continue
+
+            # All remaining faces are reset to empty, we don't care about interior faces.
+            self.classification_x[i, j] = Classification.Empty
+
+        for i, j in self.classification_y:
+            # The simulation boundary is always colliding.
+            y_face_is_colliding = i >= self.n_grid or i < 0
+            y_face_is_colliding |= j >= self.n_grid or j <= 0
+            if y_face_is_colliding:
+                self.classification_y[i, j] = Classification.Colliding
+                continue
+
+            # All remaining faces are reset to empty, we don't care about interior faces.
+            self.classification_y[i, j] = Classification.Empty
+
         for i, j in self.classification_c:
-            if self.is_colliding(i, j):
+            # A cell is colliding if all of its surrounding faces are colliding:
+            is_colliding = self.classification_x[i, j] == Classification.Colliding
+            is_colliding &= self.classification_x[i + 1, j] == Classification.Colliding
+            is_colliding &= self.classification_y[i, j] == Classification.Colliding
+            is_colliding &= self.classification_y[i, j + 1] == Classification.Colliding
+
+            if is_colliding:
+                self.classification_c[i, j] = Classification.Colliding
+
                 # The boundary temperature is recorded for boundary (colliding) cells:
                 self.temperature_c[i, j] = self.boundary_temperature[None]
                 continue
