@@ -35,7 +35,7 @@ class AugmentedMPM(StaggeredSolver):
         self.JE_p = ti.field(dtype=ti.f32, shape=max_particles)
         self.JP_p = ti.field(dtype=ti.f32, shape=max_particles)
         self.mu_p = ti.field(dtype=ti.f32, shape=max_particles)
-        self.C_p = ti.Matrix.field(2, 2, dtype=ti.f32, shape=max_particles)
+        self.B_p = ti.Matrix.field(2, 2, dtype=ti.f32, shape=max_particles)
 
         # Fields needed for the latent heat and phase change.
         self.latent_heat_p = ti.field(dtype=ti.f32, shape=max_particles)  # U_p
@@ -65,7 +65,7 @@ class AugmentedMPM(StaggeredSolver):
         self.velocity_p[index] = geometry.velocity
         self.position_p[index] = position
         self.state_p[index] = State.Active
-        self.C_p[index] = ti.Matrix.zero(ti.f32, 2, 2)
+        self.B_p[index] = ti.Matrix.zero(ti.f32, 2, 2)
 
     @ti.func
     def change_particle_material(self, p: ti.i32, material: ti.template()):  # pyright: ignore
@@ -114,8 +114,14 @@ class AugmentedMPM(StaggeredSolver):
             if self.state_p[p] == State.Hidden:
                 continue
 
+            # Compute D^(-1), which equals constant scaling for quadratic/cubic kernels.
+            D_inv = 3 * self.inv_dx * self.inv_dx  # Cubic interpolation
+
+            # Now we can convert B_p to C_p with C = B @ (D^(-1))
+            C_p = D_inv *  self.B_p[p]  # 
+
             # Update deformation gradient:
-            self.FE_p[p] += (self.dt[None] * self.C_p[p]) @ self.FE_p[p]  # pyright: ignore
+            self.FE_p[p] += (self.dt[None] * C_p) @ self.FE_p[p]  # pyright: ignore
 
             # Remove the deviatoric component from the deformation gradient:
             if self.phase_p[p] == Water.Phase:
@@ -157,14 +163,11 @@ class AugmentedMPM(StaggeredSolver):
             piola_kirchhoff = FE_deviatoric - (U_deviatoric @ V_deviatoric.transpose())
             piola_kirchhoff = (2 * mu * piola_kirchhoff) @ self.FE_p[p].transpose()  # pyright: ignore
 
-            # Compute D^(-1), which equals constant scaling for quadratic/cubic kernels.
-            D_inv = 3 * self.inv_dx * self.inv_dx  # Cubic interpolation
-
             # Cauchy stress times dt and D_inv:
             cauchy_stress = -self.dt[None] * self.vol_0_p * D_inv * piola_kirchhoff
 
             # APIC momentum + MLS-MPM stress contribution [Hu et al. 2018, Eqn. 29].
-            affine = cauchy_stress + self.mass_p[p] * self.C_p[p]
+            affine = cauchy_stress + self.mass_p[p] * C_p
             affine_x = affine @ ti.Vector([1, 0])  # pyright: ignore
             affine_y = affine @ ti.Vector([0, 1])  # pyright: ignore
 
@@ -339,14 +342,12 @@ class AugmentedMPM(StaggeredSolver):
                 velocity_x = weight_x * self.velocity_x[base_x + offset]
                 velocity_y = weight_y * self.velocity_y[base_y + offset]
                 velocity += [velocity_x, velocity_y]
-                x_dpos = ti.cast(offset, ti.f32) - dist_x
-                y_dpos = ti.cast(offset, ti.f32) - dist_y
+                x_dpos = (ti.cast(offset, ti.f32) - dist_x) * self.dx
+                y_dpos = (ti.cast(offset, ti.f32) - dist_y) * self.dx
                 b_x += velocity_x * x_dpos
                 b_y += velocity_y * y_dpos
 
-            c_x = 3 * self.inv_dx * b_x  # C = B @ (D^(-1)), inv_dx cancelled out by dx in dpos
-            c_y = 3 * self.inv_dx * b_y  # C = B @ (D^(-1)), inv_dx cancelled out by dx in dpos
-            self.C_p[p] = ti.Matrix([[c_x[0], c_y[0]], [c_x[1], c_y[1]]])  # pyright: ignore
+            self.B_p[p] = ti.Matrix([[b_x[0], b_y[0]], [b_x[1], b_y[1]]])  # pyright: ignore
             self.position_p[p] += self.dt[None] * velocity
             self.velocity_p[p] = velocity
 
