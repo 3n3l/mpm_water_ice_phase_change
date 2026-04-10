@@ -7,6 +7,7 @@ class Classification:
     Colliding = 33
     Interior = 44
     Insulated = 55
+    Unknown = 66
 
 
 @dataclass

@@ -252,8 +252,8 @@ class AugmentedMPM(StaggeredSolver):
                 self.classification_x[i, j] = Classification.Colliding
                 continue
 
-            # All remaining faces are reset to empty, we don't care about interior faces.
-            self.classification_x[i, j] = Classification.Empty
+            # All remaining faces are reset, we only care about colliding faces.
+            self.classification_x[i, j] = Classification.Unknown
 
         for i, j in self.classification_y:
             # The simulation boundary is always colliding.
@@ -263,8 +263,8 @@ class AugmentedMPM(StaggeredSolver):
                 self.classification_y[i, j] = Classification.Colliding
                 continue
 
-            # All remaining faces are reset to empty, we don't care about interior faces.
-            self.classification_y[i, j] = Classification.Empty
+            # All remaining faces are reset, we only care about colliding faces.
+            self.classification_y[i, j] = Classification.Unknown
 
         for i, j in self.classification_c:
             # A cell is colliding if all of its surrounding faces are colliding:
