@@ -46,25 +46,55 @@ class CollocatedSolver(ABC):
 
     @ti.func
     def is_valid(self, i: int, j: int) -> bool:
+        # print(f"negative_boundary = {self.negative_boundary}")
+        # print(f"positive_boundary = {self.positive_boundary}")
         _is_valid = self.negative_boundary < i < self.positive_boundary
-        _is_valid = self.negative_boundary < j < self.positive_boundary
+        _is_valid &= self.negative_boundary < j < self.positive_boundary
         return _is_valid
 
     @ti.func
     def is_colliding(self, i: int, j: int) -> bool:
-        return self.is_valid(i, j) and self.classification_c[i, j] == Classification.Colliding
-
-    @ti.func
-    def is_insulated(self, i: int, j: int) -> bool:
-        return self.is_valid(i, j) and self.classification_c[i, j] == Classification.Insulated
+        _is_colliding = False
+        if self.is_valid(i, j):
+            _is_colliding = self.classification_c[i, j] == Classification.Colliding
+        return _is_colliding
 
     @ti.func
     def is_interior(self, i: int, j: int) -> bool:
-        return self.is_valid(i, j) and self.classification_c[i, j] == Classification.Interior
+        _is_interior = False
+        if self.is_valid(i, j):
+            _is_interior = self.classification_c[i, j] == Classification.Interior
+        return _is_interior
 
     @ti.func
     def is_empty(self, i: int, j: int) -> bool:
-        return self.is_valid(i, j) and self.classification_c[i, j] == Classification.Empty
+        _is_empty = False
+        if self.is_valid(i, j):
+            _is_empty = self.classification_c[i, j] == Classification.Empty
+        return _is_empty
+
+    @ti.func
+    def is_insulated(self, i: int, j: int) -> bool:
+        _is_insulated = False
+        if self.is_valid(i, j):
+            _is_insulated = self.classification_c[i, j] == Classification.Insulated
+        return _is_insulated
+
+    # @ti.func
+    # def is_colliding(self, i: int, j: int) -> bool:
+    #     return self.is_valid(i, j) and self.classification_c[i, j] == Classification.Colliding
+    #
+    # @ti.func
+    # def is_insulated(self, i: int, j: int) -> bool:
+    #     return self.is_valid(i, j) and self.classification_c[i, j] == Classification.Insulated
+    #
+    # @ti.func
+    # def is_interior(self, i: int, j: int) -> bool:
+    #     return self.is_valid(i, j) and self.classification_c[i, j] == Classification.Interior
+    #
+    # @ti.func
+    # def is_empty(self, i: int, j: int) -> bool:
+    #     return self.is_valid(i, j) and self.classification_c[i, j] == Classification.Empty
 
     @ti.func
     def compute_cubic_kernel(self, distance: ti.template()) -> ti.template():  # pyright: ignore
