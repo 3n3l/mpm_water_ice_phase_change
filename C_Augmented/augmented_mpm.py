@@ -386,5 +386,5 @@ class AugmentedMPM(StaggeredSolver):
         self.classify_cells()
         self.compute_volumes()
         self.pressure_solver.solve()
-        self.heat_solver.solve()
+        # self.heat_solver.solve()
         self.grid_to_particle()

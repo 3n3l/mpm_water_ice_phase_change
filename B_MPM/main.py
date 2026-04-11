@@ -4,17 +4,17 @@ tests_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(tests_dir))
 
 from _common.simulation import GGUI_Simulation, GUI_Simulation
-from _common.parsers.parsing import parser, add_configuration
 from _common.samplers import PoissonDiskSampler
-from _common.presets import water_presets
+from _common.parsers import parser, add_configuration
+from _common.presets import snow_presets, ice_presets
 
-from apic import APIC
+from snow_mpm import MPM
 
 import taichi as ti
 
 
 def main():
-    configurations = water_presets
+    configurations = snow_presets + ice_presets
     add_configuration(configurations)
     arguments = parser.parse_args()
     print(parser.epilog)
@@ -28,39 +28,40 @@ def main():
         ti.init(arch=ti.cuda, debug=arguments.debug, verbose=arguments.verbose)
 
     initial_configuration = arguments.configuration % len(configurations)
-    name = f"Affine Particle-In-Cell Method"
-    prefix = f"APIC"
+    name = "Material Point Method for Snow Simulation"
+    prefix = "MPM"
 
     max_particles, n_grid = 300_000, 128
-    radius = 1 / (4 * float(n_grid))  # 4 particles per cell
+    radius = 1 / (6 * float(n_grid))  # 4 particles per cell
     vol_0 = math.pi * (radius**2)
 
-    solver = APIC(max_particles=max_particles, n_grid=n_grid, vol_0=vol_0)
-    sampler = PoissonDiskSampler(solver=solver, r=radius, k=50)
+    mpm_solver = MPM(max_particles, n_grid, vol_0)
+    poisson_disk_sampler = PoissonDiskSampler(solver=mpm_solver, r=radius*1.2, k=30)
     if arguments.gui.lower() == "ggui":
-        simulation = GGUI_Simulation(
+        renderer = GGUI_Simulation(
             initial_configuration=initial_configuration,
+            sampler=poisson_disk_sampler,
             configurations=configurations,
-            sampler=sampler,
-            solver=solver,
+            solver=mpm_solver,
+            # res=(720, 720),
+            res=(360, 360),
             prefix=prefix,
-            res=(720, 720),
             radius=radius,
             name=name,
         )
-        simulation.run()
+        renderer.run()
     elif arguments.gui.lower() == "gui":
-        simulation = GUI_Simulation(
+        renderer = GUI_Simulation(
             initial_configuration=initial_configuration,
             configurations=configurations,
-            sampler=sampler,
+            sampler=poisson_disk_sampler,
+            solver=mpm_solver,
             prefix=prefix,
-            solver=solver,
             radius=radius,
             name=name,
             res=720,
         )
-        simulation.run()
+        renderer.run()
 
     print("\n", "#" * 100, sep="")
     print("###", name)

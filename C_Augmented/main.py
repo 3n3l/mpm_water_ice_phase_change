@@ -28,7 +28,7 @@ def main():
         ti.init(arch=ti.cuda, debug=arguments.debug, verbose=arguments.verbose)
 
     initial_configuration = arguments.configuration % len(configurations)
-    name = "Augmented MPM"
+    name = "Two-Way Simulation of Water & Ice"
     prefix = "A_MPM"
 
     max_particles, n_grid = 300_000, 128
@@ -42,7 +42,8 @@ def main():
             initial_configuration=initial_configuration,
             configurations=configurations,
             sampler=poisson_disk_sampler,
-            res=(720, 720),
+            # res=(720, 720),
+            res=(360, 360),
             prefix=prefix,
             solver=solver,
             radius=radius,
