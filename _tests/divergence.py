@@ -167,9 +167,9 @@ def main() -> None:
             test_succeeded = min_average > LOWER_BOUND and max_average < UPPER_BOUND
             all_tests_succeeded &= test_succeeded
             result = (
-                f"{configuration.name}\n"
-                f"-> average min, max = {print_wrt_bound(min_average)}, {print_wrt_bound(max_average)}\n"
-                f"-> spiking min, max = {print_wrt_bound(min_spiking)}, {print_wrt_bound(max_spiking)}\n"
+                f"{configuration.name} {configuration.information}\n"
+                f"-> AVERAGE DIVERGENCE: min, max = {print_wrt_bound(min_average)}, {print_wrt_bound(max_average)}\n"
+                f"-> SPIKING DIVERGENCE: min, max = {print_wrt_bound(min_spiking)}, {print_wrt_bound(max_spiking)}\n"
                 f"-> {utils.print_green("PASSED!") if test_succeeded else utils.print_red("DID NOT PASS!")}\n"
             )
             results.append(result)
