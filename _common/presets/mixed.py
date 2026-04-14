@@ -124,14 +124,14 @@ mixed_presets = [
         dt=3e-4,
         name="Waterjet & Ice Cubes",
         information="Water, Ice -> Water",
-        ambient_temperature=30.0,
+        ambient_temperature=1.0,
         geometries=[
             *[
                 Circle(
                     is_continuous=True,
                     material=Water,  # pyright: ignore
                     center=(0.04, 0.96),
-                    temperature=500.0,
+                    temperature=50.0,
                     velocity=(2, -1),
                     radius=0.025,
                     frame_threshold=i,
