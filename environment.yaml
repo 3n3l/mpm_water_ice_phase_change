@@ -1,4 +1,4 @@
-name: Taichi
+name: MPM
 channels:
   - defaults
 dependencies:
