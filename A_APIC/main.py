@@ -44,8 +44,7 @@ def main():
             sampler=sampler,
             solver=solver,
             prefix=prefix,
-            # res=(720, 720),
-            res=(360, 360),
+            res=(720, 720),
             radius=radius,
             name=name,
         )
