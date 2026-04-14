@@ -16,6 +16,13 @@ import taichi as ti
 def main():
     configurations = snow_presets + ice_presets
     add_configuration(configurations)
+    solver_type_help = "Turn on verbose logging."
+    parser.add_argument(
+        "--free_slip",
+        default=False,
+        action="store_true",
+        help=solver_type_help,
+    )
     arguments = parser.parse_args()
     print(parser.epilog)
 
@@ -35,7 +42,7 @@ def main():
     radius = 1 / (4 * float(n_grid))  # 4 particles per cell
     vol_0 = math.pi * (radius**2)
 
-    mpm_solver = MPM(max_particles, n_grid, vol_0)
+    mpm_solver = MPM(max_particles, n_grid, vol_0, should_use_free_slip=arguments.free_slip)
     poisson_disk_sampler = PoissonDiskSampler(solver=mpm_solver, r=radius, k=50)
     if arguments.gui.lower() == "ggui":
         renderer = GGUI_Simulation(

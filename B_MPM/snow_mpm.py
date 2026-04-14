@@ -8,8 +8,9 @@ import taichi as ti
 
 @ti.data_oriented
 class MPM(CollocatedSolver):
-    def __init__(self, max_particles: int, n_grid: int, vol_0: float):
+    def __init__(self, max_particles: int, n_grid: int, vol_0: float, should_use_free_slip: bool = False):
         super().__init__(max_particles, n_grid, vol_0)
+        self.should_use_free_slip = should_use_free_slip
 
         # Particle properties:
         self.theta_c_p = ti.field(dtype=ti.f32, shape=max_particles)
@@ -114,9 +115,16 @@ class MPM(CollocatedSolver):
                 self.velocity_c[i, j] /= self.mass_c[i, j]
                 self.velocity_c[i, j][1] += self.dt[None] * self.gravity[None]
 
-            # Sticky simulation boundary:
-            if i < 0 or i > self.n_grid or j < 0 or j > self.n_grid:
-                self.velocity_c[i, j] = 0
+            if ti.static(self.should_use_free_slip):
+                # Free-slip simulation boundary:
+                if i < 0 or i > self.n_grid:
+                    self.velocity_c[i, j][0] = 0
+                if j < 0 or j > self.n_grid:
+                    self.velocity_c[i, j][1] = 0
+            else:
+                # Sticky (no-slip) simulation boundary:
+                if i < 0 or i > self.n_grid or j < 0 or j > self.n_grid:
+                    self.velocity_c[i, j] = 0
 
     @ti.kernel
     def grid_to_particle(self):
