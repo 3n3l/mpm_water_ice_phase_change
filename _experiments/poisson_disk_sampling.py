@@ -1,14 +1,15 @@
 import utils
 
 from _common.configurations import Rectangle, Circle
-from _common.samplers import PoissonDiskSampler
 from _common.constants import Ice, ColorRGB, State
+from _common.samplers import PoissonDiskSampler
+from B_MPM.snow_mpm import MPM
 
 import taichi as ti
 
 ti.init(arch=ti.cpu, debug=True)
 
-max_particles = 50_000
+max_particles = 1_000_000
 position_p = ti.Vector.field(2, dtype=float, shape=max_particles)
 state_p = ti.field(dtype=float, shape=max_particles)
 
@@ -20,7 +21,7 @@ n_particles[None] = 0
 
 
 @ti.data_oriented
-class PoissonDiskSampler(PoissonDiskSampler):
+class TestPoissonDiskSampler(PoissonDiskSampler):
     def __init__(
         self,
         position_p: ti.template(),  # pyright: ignore
@@ -29,7 +30,10 @@ class PoissonDiskSampler(PoissonDiskSampler):
         r: float,
         k: int,
     ) -> None:
-        super().__init__(position_p, state_p, max_p, r, k)
+        cs = MPM(max_particles=(max_p // 2), n_grid=128, vol_0=0.42)
+        cs.position_p = position_p
+        cs.state_p = state_p
+        super().__init__(cs, r, k)
         self._head = n_particles
 
 
@@ -61,6 +65,25 @@ def main() -> None:
     )
     canvas = window.get_canvas()
 
+    ### Poisson Disk Sampling
+    pds = TestPoissonDiskSampler(position_p, state_p, max_particles, r=0.002, k=30)
+    pds.add_geometry(
+        Circle(
+            material=Ice,  # pyright: ignore
+            radius=0.1,
+            velocity=(0, 0),
+            center=(0.25, 0.75),
+        )
+    )
+    pds.add_geometry(
+        Rectangle(
+            material=Ice,  # pyright: ignore
+            size=(0.2, 0.2),
+            velocity=(0, 0),
+            lower_left=(0.15, 0.15),
+        )
+    )
+
     ### Naive Sampling
     n_samples = 5_000
     naive_add_circle(
@@ -80,25 +103,6 @@ def main() -> None:
             velocity=(0, 0),
             lower_left=(0.65, 0.15),
         ),
-    )
-
-    ### Poisson Disk Sampling
-    pds = PoissonDiskSampler(position_p, state_p, max_particles, r=0.002, k=30)
-    pds.add_geometry(
-        Circle(
-            material=Ice,  # pyright: ignore
-            radius=0.1,
-            velocity=(0, 0),
-            center=(0.25, 0.75),
-        )
-    )
-    pds.add_geometry(
-        Rectangle(
-            material=Ice,  # pyright: ignore
-            size=(0.2, 0.2),
-            velocity=(0, 0),
-            lower_left=(0.15, 0.15),
-        )
     )
 
     while window.running:

@@ -137,5 +137,6 @@ class CollocatedSolver(ABC):
     def substep(self):
         pass
 
+    @ti.func
     def add_particle(self, index: ti.i32, position: ti.template(), geometry: ti.template()):  # pyright: ignore
         pass
