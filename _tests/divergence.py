@@ -145,7 +145,7 @@ def main() -> None:
     apic_solver = APIC(max_particles=max_particles, n_grid=n_grid, vol_0=vol_0)
     solvers = {"our Method": ampm_solver, "APIC": apic_solver}
 
-    for (solver_name, solver_object) in solvers.items():
+    for solver_name, solver_object in solvers.items():
         results = []
         all_tests_succeeded = True
         poisson_disk_sampler = PoissonDiskSampler(solver=solver_object)

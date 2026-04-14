@@ -118,7 +118,7 @@ class AugmentedMPM(StaggeredSolver):
             D_inv = 3 * self.inv_dx * self.inv_dx  # Cubic interpolation
 
             # Now we can convert B_p to C_p with C = B @ (D^(-1))
-            C_p = D_inv *  self.B_p[p]  # 
+            C_p = D_inv * self.B_p[p]
 
             # Update deformation gradient:
             self.FE_p[p] += (self.dt[None] * C_p) @ self.FE_p[p]  # pyright: ignore
