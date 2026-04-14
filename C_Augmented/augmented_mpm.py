@@ -186,8 +186,8 @@ class AugmentedMPM(StaggeredSolver):
             w_x = self.compute_cubic_kernel(dist_x)
             w_y = self.compute_cubic_kernel(dist_y)
 
+            velocity_x, velocity_y, mass_p = self.velocity_p[p][0], self.velocity_p[p][1], self.mass_p[p]
             for i, j in ti.static(ti.ndrange(4, 4)):
-                velocity_x, velocity_y = self.velocity_p[p][0], self.velocity_p[p][1]
                 weight_c = w_c[i][0] * w_c[j][1]
                 weight_x = w_x[i][0] * w_x[j][1]
                 weight_y = w_y[i][0] * w_y[j][1]
@@ -197,20 +197,20 @@ class AugmentedMPM(StaggeredSolver):
                 mass = self.mass_p[p]
 
                 # Rasterize to cell centers:
-                self.temperature_c[base_c + offset] += weight_c * mass * self.temperature_p[p]
-                self.inv_lambda_c[base_c + offset] += weight_c * (mass / la)
-                self.capacity_c[base_c + offset] += weight_c * mass * self.capacity_p[p]
-                self.mass_c[base_c + offset] += weight_c * self.mass_p[p]
-                self.JE_c[base_c + offset] += weight_c * mass * self.JE_p[p]
-                self.JP_c[base_c + offset] += weight_c * mass * self.JP_p[p]
+                self.temperature_c[base_c + offset] += weight_c * mass_p * self.temperature_p[p]
+                self.inv_lambda_c[base_c + offset] += weight_c * (mass_p / la)
+                self.capacity_c[base_c + offset] += weight_c * mass_p * self.capacity_p[p]
+                self.mass_c[base_c + offset] += weight_c * mass_p
+                self.JE_c[base_c + offset] += weight_c * mass_p * self.JE_p[p]
+                self.JP_c[base_c + offset] += weight_c * mass_p * self.JP_p[p]
 
                 # Rasterize to cell faces:
-                self.conductivity_x[base_x + offset] += weight_x * mass * self.conductivity_p[p]
-                self.conductivity_y[base_y + offset] += weight_y * mass * self.conductivity_p[p]
-                self.velocity_x[base_x + offset] += weight_x * (mass * velocity_x + affine_x @ dpos_x)
-                self.velocity_y[base_y + offset] += weight_y * (mass * velocity_y + affine_y @ dpos_y)
-                self.mass_x[base_x + offset] += weight_x * mass
-                self.mass_y[base_y + offset] += weight_y * mass
+                self.conductivity_x[base_x + offset] += weight_x * mass_p * self.conductivity_p[p]
+                self.conductivity_y[base_y + offset] += weight_y * mass_p * self.conductivity_p[p]
+                self.velocity_x[base_x + offset] += weight_x * (mass_p * velocity_x + affine_x @ dpos_x)
+                self.velocity_y[base_y + offset] += weight_y * (mass_p * velocity_y + affine_y @ dpos_y)
+                self.mass_x[base_x + offset] += weight_x * mass_p
+                self.mass_y[base_y + offset] += weight_y * mass_p
 
     @ti.kernel
     def momentum_to_velocity(self):
