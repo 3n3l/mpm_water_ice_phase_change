@@ -120,14 +120,14 @@ class AugmentedMPM(StaggeredSolver):
             # Now we can convert B_p to C_p with C = B @ (D^(-1))
             C_p = D_inv * self.B_p[p]
 
-            # Update deformation gradient:
+            # Evolve deformation gradient:
             self.FE_p[p] += (self.dt[None] * C_p) @ self.FE_p[p]  # pyright: ignore
 
             # Remove the deviatoric component from the deformation gradient:
             if self.phase_p[p] == Water.Phase:
                 self.FE_p[p] = ti.sqrt(self.JE_p[p]) * ti.Matrix.identity(ti.f32, 2)
 
-            # Clamp singular values to simulate plasticity and elasticity:
+            # Clamp singular values to apply plasticity:
             U, sigma, V = ti.svd(self.FE_p[p])
             self.JE_p[p] = 1.0
             for d in ti.static(range(2)):
@@ -144,13 +144,7 @@ class AugmentedMPM(StaggeredSolver):
             # Reconstruct elastic deformation gradient after plasticity
             self.FE_p[p] = U @ sigma @ V.transpose()
 
-            # # TODO: if elasticity/plasticity is applied in the fluid phase, we also need this corrections:
-            # if self.phase_p[p] == Phase.Water:
-            #     self.FE_p[p] *= ti.sqrt(self.JP_p[p])
-            #     self.JE_p[p] = ti.math.determinant(self.FE_p[p])
-            #     self.JP_p[p] = 1.0
-
-            # Apply ice hardening by adjusting Lame parameters:
+            # Apply ice strain hardening by adjusting Lame parameters:
             la, mu = self.lambda_p[p], self.mu_p[p]
             if self.phase_p[p] == Ice.Phase:
                 hardening = ti.max(0.1, ti.min(20, ti.exp(self.zeta_p[p] * (1.0 - self.JP_p[p]))))
@@ -194,7 +188,6 @@ class AugmentedMPM(StaggeredSolver):
                 offset = ti.Vector([i, j])
                 dpos_x = ti.cast(offset - dist_x, ti.f32) * self.dx
                 dpos_y = ti.cast(offset - dist_y, ti.f32) * self.dx
-                mass = self.mass_p[p]
 
                 # Rasterize to cell centers:
                 self.temperature_c[base_c + offset] += weight_c * mass_p * self.temperature_p[p]
@@ -217,8 +210,8 @@ class AugmentedMPM(StaggeredSolver):
         for i, j in self.mass_x:
             if (mass_x := self.mass_x[i, j]) > 0:
                 self.velocity_x[i, j] /= mass_x
-                # Everything outside the visible grid belongs to the simulation boundary,
-                # we enforce a free-slip boundary condition by allowing separation.
+                # Everything outside the visible grid belongs to the simulation boundary.
+                # We enforce a free-slip boundary condition:
                 if (i >= self.n_grid and self.velocity_x[i, j] > 0) or (i <= 0 and self.velocity_x[i, j] < 0):
                     self.velocity_x[i, j] = 0
 
@@ -226,8 +219,8 @@ class AugmentedMPM(StaggeredSolver):
             if (mass_y := self.mass_y[i, j]) > 0:
                 self.velocity_y[i, j] /= mass_y
                 self.velocity_y[i, j] += self.gravity[None] * self.dt[None]
-                # Everything outside the visible grid belongs to the simulation boundary,
-                # we enforce a free-slip boundary condition by allowing separation.
+                # Everything outside the visible grid belongs to the simulation boundary.
+                # We enforce a free-slip boundary condition:
                 if (j >= self.n_grid and self.velocity_y[i, j] > 0) or (j <= 0 and self.velocity_y[i, j] < 0):
                     self.velocity_y[i, j] = 0
 

@@ -58,29 +58,30 @@ class MPM(CollocatedSolver):
             if self.state_p[p] == State.Hidden:
                 continue
 
-            # Update deformation gradient:
+            # Evolve deformation gradient:
             self.FE_p[p] += (self.dt[None] * self.C_p[p]) @ self.FE_p[p]  # pyright: ignore
 
-            # Apply snow hardening by adjusting Lame parameters
-            h = ti.max(0.1, ti.min(50, ti.exp(self.zeta_p[p] * (1.0 - self.JP_p[p]))))
-            mu, la = self.mu_0_p[p] * h, self.lambda_p[p] * h
+            # Clamp singular values to apply plasticity:
             U, sigma, V = ti.svd(self.FE_p[p])
-
-            J = 1.0
+            JE = 1.0
             for d in ti.static(range(2)):
                 singular_value = float(sigma[d, d])
                 singular_value = max(singular_value, 1 - self.theta_c_p[p])
                 singular_value = min(singular_value, 1 + self.theta_s_p[p])
                 self.JP_p[p] *= sigma[d, d] / singular_value
                 sigma[d, d] = singular_value
-                J *= singular_value
+                JE *= singular_value
 
             # Reconstruct elastic deformation gradient after plasticity
             self.FE_p[p] = U @ sigma @ V.transpose()
 
+            # Apply snow stran hardening by adjusting Lame parameters
+            h = ti.max(0.1, ti.min(20, ti.exp(self.zeta_p[p] * (1.0 - self.JP_p[p]))))
+            mu, la = self.mu_0_p[p] * h, self.lambda_p[p] * h
+
             # Compute Piola-Kirchhoff stress P(F), (JST16, Eqn. 52)
             piola_kirchhoff = 2 * mu * (self.FE_p[p] - U @ V.transpose()) @ self.FE_p[p].transpose()  # pyright: ignore
-            piola_kirchhoff += ti.Matrix.identity(float, 2) * la * J * (J - 1)
+            piola_kirchhoff += ti.Matrix.identity(float, 2) * la * JE * (JE - 1)
 
             # Cauchy stress times dt and D_inv
             cauchy_stress = -self.dt[None] * self.vol_0_p * 4 * self.inv_dx * self.inv_dx * piola_kirchhoff
@@ -122,7 +123,7 @@ class MPM(CollocatedSolver):
                 if j < 0 or j > self.n_grid:
                     self.velocity_c[i, j][1] = 0
             else:
-                # Sticky (no-slip) simulation boundary:
+                # No-slip (sticky) simulation boundary:
                 if i < 0 or i > self.n_grid or j < 0 or j > self.n_grid:
                     self.velocity_c[i, j] = 0
 
