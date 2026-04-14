@@ -32,11 +32,11 @@ def main():
     prefix = "MPM"
 
     max_particles, n_grid = 300_000, 128
-    radius = 1 / (6 * float(n_grid))  # 4 particles per cell
+    radius = 1 / (4 * float(n_grid))  # 4 particles per cell
     vol_0 = math.pi * (radius**2)
 
     mpm_solver = MPM(max_particles, n_grid, vol_0)
-    poisson_disk_sampler = PoissonDiskSampler(solver=mpm_solver, r=radius*1.2, k=30)
+    poisson_disk_sampler = PoissonDiskSampler(solver=mpm_solver, r=radius, k=50)
     if arguments.gui.lower() == "ggui":
         renderer = GGUI_Simulation(
             initial_configuration=initial_configuration,
